@@ -29,9 +29,27 @@ every chart has something to say on first launch.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # production build in dist/
+npm run dev        # http://localhost:5173
+npm run build      # production web build in dist/
+npm run app:build  # Windows installer (NSIS) in release/  — Veronis-Setup-<version>.exe
 ```
+
+The installer is a self-contained desktop app (hardened Electron shell, fully
+offline). Hand the `Veronis-Setup-*.exe` to any Windows machine to showcase.
+It is not yet code-signed, so SmartScreen will ask for "More info → Run anyway".
+
+## Plans
+
+Three subscription tiers are built in (Basic €14.90 / Standard €29.90 / Premium
+€49.90 per month, ~20% off annually) with feature gating: rooms/tables and history
+limits on Basic, chart widgets from Standard, quiet-hours intelligence on Premium.
+Every fresh install starts a 14-day Premium trial. Activation is currently local
+(demo licensing) — production requires a licence server (see SECURITY.md).
+
+## Security
+
+See [SECURITY.md](SECURITY.md) — sandboxed renderer, strict CSP, zero runtime
+network calls, denied permissions, audit-clean runtime dependencies.
 
 ## Stack
 
