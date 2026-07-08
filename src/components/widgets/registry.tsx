@@ -9,6 +9,7 @@ import {
   Receipt,
   ShoppingBag,
   Star,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import type { Period, Widget, WidgetType } from '../../lib/types'
@@ -24,6 +25,7 @@ import {
   hourlyTotals,
   paymentMix,
   pctChange,
+  salesByEmployee,
   periodLabel,
   periodRange,
   prevPeriodLabel,
@@ -37,6 +39,7 @@ import {
 import { DAY_NAMES, fmtMoney, fmtMoneyCompact, fmtNumber, fmtTime, fmtDate } from '../../lib/format'
 import { accent } from '../../lib/palette'
 import { WIDGET_MIN_PLAN, effectivePlan, planAllows, planName } from '../../lib/plans'
+import { lineText } from '../../lib/barcode'
 import { useStore } from '../../store/useStore'
 import { Lock } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -65,6 +68,7 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
   paymentMix: { title: 'Payments', icon: CreditCard, description: 'Cash vs card split', chart: false },
   deadHours: { title: 'Quiet hours', icon: Moon, description: 'Hours and days with no clients — when you could close or run a lighter shift', chart: true },
   recentSales: { title: 'Latest sales', icon: History, description: 'The most recent paid orders', chart: false },
+  salesByEmployee: { title: 'Sales by employee', icon: Users, description: 'Who sold how much — revenue and orders per team member', chart: true },
 }
 
 export function widgetSubtitle(type: WidgetType, period: Period): string {
@@ -216,6 +220,16 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
         />
       )
     }
+    case 'salesByEmployee': {
+      const byEmployee = salesByEmployee(inPeriod).slice(0, 6)
+      return (
+        <HBarChart
+          data={byEmployee.map((e) => ({ name: e.name, value: e.revenue, sub: `· ${e.orders} orders` }))}
+          color={a.color}
+          formatValue={moneyC}
+        />
+      )
+    }
     case 'categoryMix': {
       return <Donut slices={categoryMix(inPeriod, products, categories)} formatValue={moneyC} />
     }
@@ -293,7 +307,7 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
                 {fmtDate(s.at)} {fmtTime(s.at)}
               </span>
               <span className="min-w-0 flex-1 truncate text-stone-600">
-                {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                {s.lines.map((l) => lineText(l.qty, l.unit, l.name)).join(', ')}
               </span>
               <span className="shrink-0 font-medium text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {money(s.total)}

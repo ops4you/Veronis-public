@@ -53,12 +53,14 @@ export function buildSeed(now = Date.now()): SeedData {
     { id: 'cat-bar', name: 'Bar' },
   ]
 
-  const P = (id: string, name: string, price: number, categoryId: string): Product => ({
+  const P = (id: string, name: string, price: number, categoryId: string, extra?: Partial<Product>): Product => ({
     id,
     name,
     price,
     categoryId,
     active: true,
+    unit: 'each',
+    ...extra,
   })
 
   const products: Product[] = [
@@ -77,8 +79,9 @@ export function buildSeed(now = Date.now()): SeedData {
     P('p-soup', 'Soup of the day', 3.9, 'cat-brunch'),
     P('p-oj', 'Fresh orange juice', 3.2, 'cat-drinks'),
     P('p-lemonade', 'House lemonade', 2.9, 'cat-drinks'),
-    P('p-soda', 'Soft drink', 1.8, 'cat-drinks'),
-    P('p-water', 'Sparkling water', 1.5, 'cat-drinks'),
+    P('p-soda', 'Soft drink', 1.8, 'cat-drinks', { barcode: '5449000000996' }),
+    P('p-water', 'Sparkling water', 1.5, 'cat-drinks', { barcode: '5601312111111' }),
+    P('p-fruit', 'Fresh fruit salad', 8.9, 'cat-drinks', { unit: 'kg', barcode: '2000001' }),
     P('p-beer', 'Draft beer', 2.5, 'cat-bar'),
     P('p-wine', 'Glass of wine', 3.5, 'cat-bar'),
     P('p-gt', 'Gin & tonic', 6.0, 'cat-bar'),
@@ -125,6 +128,13 @@ export function buildSeed(now = Date.now()): SeedData {
   const priceOf = new Map(products.map((p) => [p.id, p.price]))
   const nameOf = new Map(products.map((p) => [p.id, p.name]))
 
+  // Demo staff for the per-employee stats (real accounts come from the server)
+  const staff = [
+    { id: 'demo-ana', name: 'Ana' },
+    { id: 'demo-miguel', name: 'Miguel' },
+    { id: 'demo-sofia', name: 'Sofia' },
+  ]
+
   const sales: Sale[] = []
   const today = startOfDay(now)
   let saleSeq = 0
@@ -158,11 +168,14 @@ export function buildSeed(now = Date.now()): SeedData {
           lines.push({ productId: extra, name: nameOf.get(extra)!, qty: 1, unitPrice: priceOf.get(extra)! })
         }
         const total = lines.reduce((acc, l) => acc + l.qty * l.unitPrice, 0)
+        const server = staff[Math.floor(rand() * staff.length)]
         sales.push({
           id: `seed-sale-${saleSeq++}`,
           at: slotStart + Math.floor(rand() * 3_540_000),
           total: Math.round(total * 100) / 100,
           method: rand() < 0.42 ? 'cash' : 'card',
+          employeeId: server.id,
+          employeeName: server.name,
           lines,
         })
       }
@@ -194,6 +207,7 @@ export function buildSeed(now = Date.now()): SeedData {
     { id: 'w-salesByDay', type: 'salesByDay', size: 2, accent: 'blue' },
     { id: 'w-deadHours', type: 'deadHours', size: 2, accent: 'amber' },
     { id: 'w-topProducts', type: 'topProducts', size: 2, accent: 'teal' },
+    { id: 'w-salesByEmployee', type: 'salesByEmployee', size: 2, accent: 'magenta' },
     { id: 'w-categoryMix', type: 'categoryMix', size: 1, accent: 'violet' },
     { id: 'w-recentSales', type: 'recentSales', size: 1, accent: 'orange' },
   ]

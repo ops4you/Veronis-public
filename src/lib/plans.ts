@@ -88,6 +88,7 @@ export const WIDGET_MIN_PLAN: Record<WidgetType, PlanId> = {
   topProducts: 'standard',
   categoryMix: 'standard',
   paymentMix: 'standard',
+  salesByEmployee: 'standard',
   deadHours: 'premium',
 }
 

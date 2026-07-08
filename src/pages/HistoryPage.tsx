@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore'
 import { periodRange, salesIn, expensesIn, sumSales, sumExpenses } from '../lib/analytics'
 import { fmtDateLong, fmtMoney, fmtTime, startOfDay } from '../lib/format'
 import { effectivePlan, historyDays } from '../lib/plans'
+import { lineText } from '../lib/barcode'
 
 const PERIODS: { key: Period; label: string; days: number }[] = [
   { key: 'today', label: 'Today', days: 1 },
@@ -122,7 +123,7 @@ function SalesLedger({ period }: { period: Period }) {
                 <li key={s.id} className="flex items-center gap-3 px-4 py-2 text-sm">
                   <span className="w-12 shrink-0 text-stone-400" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtTime(s.at)}</span>
                   <span className="min-w-0 flex-1 truncate text-stone-600">
-                    {s.lines.map((l) => `${l.qty}× ${l.name}`).join(', ')}
+                    {s.lines.map((l) => lineText(l.qty, l.unit, l.name)).join(', ')}
                   </span>
                   <span className="shrink-0 text-stone-300" title={s.method === 'cash' ? 'Cash' : 'Card'}>
                     {s.method === 'cash' ? <Banknote size={15} /> : <CreditCard size={15} />}

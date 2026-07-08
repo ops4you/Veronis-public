@@ -3,6 +3,7 @@ import { Banknote, CreditCard, Printer } from 'lucide-react'
 import type { Order, PayMethod } from '../../lib/types'
 import { useStore } from '../../store/useStore'
 import { fmtMoney } from '../../lib/format'
+import { lineText } from '../../lib/barcode'
 import { Modal } from '../ui/Modal'
 
 interface Props {
@@ -32,9 +33,7 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
         <div className="border-t border-dashed border-stone-300 py-2">
           {order.items.map((i) => (
             <div key={i.id} className="flex justify-between gap-2 py-0.5">
-              <span className="min-w-0 flex-1 truncate">
-                {i.qty}× {i.name}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{lineText(i.qty, i.unit, i.name)}</span>
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(i.qty * i.unitPrice)}</span>
             </div>
           ))}

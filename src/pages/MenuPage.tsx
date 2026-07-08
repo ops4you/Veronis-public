@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
-import type { Product } from '../lib/types'
+import type { Product, ProductUnit } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtMoney } from '../lib/format'
 import { Modal } from '../components/ui/Modal'
@@ -112,12 +112,20 @@ export function MenuPage() {
             <tbody className="divide-y divide-stone-100">
               {visible.map((p) => (
                 <tr key={p.id} className={p.active ? '' : 'opacity-50'}>
-                  <td className="px-4 py-2.5 font-medium text-stone-900">{p.name}</td>
+                  <td className="px-4 py-2.5 font-medium text-stone-900">
+                    {p.name}
+                    {p.barcode && (
+                      <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-normal text-stone-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        ⌷ {p.barcode}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-stone-500">
                     {categories.find((c) => c.id === p.categoryId)?.name ?? '—'}
                   </td>
                   <td className="px-4 py-2.5 text-right text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fmtMoney(p.price, settings.currency)}
+                    {p.unit === 'kg' && <span className="text-xs text-stone-400"> /kg</span>}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <button
@@ -184,12 +192,14 @@ function ProductModal({
   product: Product | null
   defaultCategoryId: string
   onClose: () => void
-  onSave: (data: { name: string; price: number; categoryId: string }) => void
+  onSave: (data: { name: string; price: number; categoryId: string; unit: ProductUnit; barcode?: string }) => void
 }) {
   const { categories, addCategory } = useStore()
   const [name, setName] = useState(product?.name ?? '')
   const [price, setPrice] = useState(product ? String(product.price) : '')
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? defaultCategoryId)
+  const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? 'each')
+  const [barcode, setBarcode] = useState(product?.barcode ?? '')
   const [error, setError] = useState<string | null>(null)
 
   return (
@@ -198,10 +208,19 @@ function ProductModal({
         onSubmit={(e) => {
           e.preventDefault()
           const parsed = Number(price.replace(',', '.'))
+          const code = barcode.trim()
           if (!name.trim()) return setError('Give the product a name.')
           if (!Number.isFinite(parsed) || parsed < 0) return setError('Enter a valid price, e.g. 2.50.')
           if (!categoryId) return setError('Pick a category — or create one first on the Menu page.')
-          onSave({ name: name.trim(), price: Math.round(parsed * 100) / 100, categoryId })
+          if (code && !/^[0-9A-Za-z\-_.]{4,20}$/.test(code))
+            return setError('Barcodes are 4–20 characters (digits and letters).')
+          onSave({
+            name: name.trim(),
+            price: Math.round(parsed * 100) / 100,
+            categoryId,
+            unit,
+            barcode: code || undefined,
+          })
         }}
         className="space-y-3"
       >
@@ -215,14 +234,40 @@ function ProductModal({
             autoFocus
           />
         </label>
+        <div className="flex gap-3">
+          <label className="block flex-1">
+            <span className="mb-1 block text-sm font-medium text-stone-700">Price</span>
+            <input
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              inputMode="decimal"
+              className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              placeholder="2.50"
+            />
+          </label>
+          <label className="block w-40">
+            <span className="mb-1 block text-sm font-medium text-stone-700">Sold</span>
+            <select
+              value={unit}
+              onChange={(e) => setUnit(e.target.value as ProductUnit)}
+              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value="each">Per item</option>
+              <option value="kg">By weight (€/kg)</option>
+            </select>
+          </label>
+        </div>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-stone-700">Price</span>
+          <span className="mb-1 block text-sm font-medium text-stone-700">
+            Barcode <span className="font-normal text-stone-400">(optional — scanner or in-store “2…” prefix)</span>
+          </span>
           <input
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            inputMode="decimal"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            inputMode="numeric"
             className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            placeholder="2.50"
+            placeholder="e.g. 5601312111111 or 2000001"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
           />
         </label>
         <label className="block">

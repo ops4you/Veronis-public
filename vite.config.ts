@@ -33,5 +33,8 @@ function injectCsp(): Plugin {
 export default defineConfig({
   plugins: [react(), injectCsp()],
   base: './', // relative asset paths so the build also works from file:// (Electron)
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: { '/api': 'http://localhost:8787' },
+  },
 })

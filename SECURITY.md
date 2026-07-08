@@ -9,6 +9,36 @@ expenses) lives only on the machine it runs on — there is no account, no serve
 and **zero network calls at runtime**. The main assets to protect are the local
 business data and the integrity of the app itself.
 
+## Web deployment (v0.4+): auth & server
+
+- Passwords hashed with bcrypt (cost 11); never logged, never returned.
+- Sessions: signed JWT in an httpOnly SameSite=Lax cookie (`secure` in
+  production) — no tokens in JavaScript-readable storage.
+- **Email verification** on signup (24 h link, resendable, in-app banner until
+  confirmed). **Password reset** by email (1 h link) and **employee invites**
+  (48 h link, employee chooses their own password — admins never know it).
+- One-time tokens are 256-bit random values stored **hashed** (SHA-256),
+  single-use, expiring; the forgot-password endpoint gives the same response
+  whether or not the account exists (no account enumeration) and is
+  rate-limited per email.
+- Changing or resetting a password bumps `sessions_valid_after`, revoking all
+  other sessions immediately.
+- Email delivery via any SMTP provider (`SMTP_HOST/PORT/USER/PASS` or
+  `SMTP_URL`, plus `MAIL_FROM` and `APP_URL` for links). With no SMTP
+  configured (development), emails are written to `server/data/outbox/` and
+  logged — flows stay testable without leaking tokens through API responses.
+- Login rate-limited (10 attempts / 15 min per IP+email). Input validation on
+  every endpoint; parameterised SQL throughout (better-sqlite3).
+- Role enforcement server-side: employee sessions cannot create/remove
+  accounts or read other users' emails; every data endpoint is scoped to the
+  session's business id.
+- State writes are size-capped and JSON-validated. Security headers
+  (nosniff, frame deny, no-referrer) on all responses.
+- Deploy behind TLS (Caddy/nginx) with `NODE_ENV=production` set.
+- Known gap for later: business state is stored as one blob per business —
+  concurrent writes are last-write-wins (fine for one till + read-mostly
+  dashboards; the SQL-normalised schema removes this).
+
 ## Hardening in place
 
 **Desktop shell (Electron 43, current stable — all published Electron advisories
@@ -31,6 +61,16 @@ as of this date are fixed):**
 - React's default output encoding everywhere; no `dangerouslySetInnerHTML`, no `eval`.
 - All user input is treated as data, rendered escaped, and parsed with strict
   number validation where numeric.
+- Imported backup files are structurally validated field-by-field before being
+  applied; unknown plan values are downgraded, malformed records are rejected.
+- Scanned barcodes are validated (EAN-13 check digit for weight-embedded labels)
+  and treated as lookups only — a scan can never inject data.
+
+**Testing:**
+
+- 70 automated tests (Vitest) cover the analytics engine (including the
+  quiet-hours algorithm), order lifecycle, payments, plan gating, barcode
+  parsing/scanner input, and backup validation. Run with `npm test`.
 
 **Supply chain:**
 
@@ -50,9 +90,11 @@ as of this date are fixed):**
 2. **The installer is not code-signed.** Windows SmartScreen will warn on fresh
    machines. Buy an OV/EV code-signing certificate before wide distribution and
    sign both the installer and the app binary.
-3. **Local data is not encrypted at rest.** localStorage under the OS user profile
-   inherits OS user-account protection only. Roadmap: optional encrypted backups
-   and, with cloud sync, end-to-end encryption of business data.
+3. **Local data is not encrypted at rest.** IndexedDB under the OS user profile
+   inherits OS user-account protection only. Mitigations in place: versioned,
+   validated backup export/import; schema migrations that never drop data; a
+   crash screen that can always export a backup. Roadmap: optional encrypted
+   backups and, with cloud sync, end-to-end encryption of business data.
 4. **Bills are not fiscal documents.** Portuguese law requires AT-certified
    invoicing software (SAF-T PT, ATCUD, QR). Do not present printed bills as
    invoices until certification/integration is in place.

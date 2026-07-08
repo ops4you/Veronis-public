@@ -3,6 +3,7 @@ import { Check, ChefHat, ConciergeBell } from 'lucide-react'
 import type { Order } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtElapsed } from '../lib/format'
+import { lineText } from '../lib/barcode'
 
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(Date.now())
@@ -116,7 +117,7 @@ function TicketCard({
       <ul className="mb-3 space-y-1">
         {order.items.map((i) => (
           <li key={i.id} className="text-sm text-stone-800">
-            <span className="font-semibold">{i.qty}×</span> {i.name}
+            <span className="font-semibold">{lineText(i.qty, i.unit, i.name)}</span>
             {i.note && <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">{i.note}</span>}
           </li>
         ))}

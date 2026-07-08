@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
+import { idbStorage } from '../lib/idbStorage'
+import { remoteStorage } from '../lib/remoteStorage'
+import { isLocalMode } from '../lib/mode'
+import type { BackupData } from '../lib/backup'
 import type {
   AccentKey,
   BusinessSettings,
@@ -59,8 +63,10 @@ interface State {
   deleteTable: (id: string) => void
 
   // order flow
-  openOrder: (tableId: string | null) => string
-  addItemToOrder: (orderId: string, product: Product) => void
+  openOrder: (tableId: string | null, employee?: { id: string; name: string }) => string
+  setOrderEmployee: (orderId: string, employee: { id: string; name: string } | null) => void
+  /** qty: units, or kilograms for weighed products (fractional) */
+  addItemToOrder: (orderId: string, product: Product, qty?: number) => void
   setItemQty: (orderId: string, itemId: string, qty: number) => void
   setItemNote: (orderId: string, itemId: string, note: string) => void
   removeItem: (orderId: string, itemId: string) => void
@@ -84,6 +90,7 @@ interface State {
   // data management
   seedDemo: () => void
   clearAllData: () => void
+  importData: (data: BackupData) => void
 }
 
 const seed = buildSeed()
@@ -141,22 +148,43 @@ export const useStore = create<State>()(
           orders: s.orders.filter((o) => o.tableId !== id),
         })),
 
-      openOrder: (tableId) => {
+      openOrder: (tableId, employee) => {
         const existing = tableId ? get().orders.find((o) => o.tableId === tableId) : undefined
         if (existing) return existing.id
         const id = uid()
-        const order: Order = { id, tableId, items: [], status: 'open', createdAt: Date.now() }
+        const order: Order = {
+          id,
+          tableId,
+          items: [],
+          status: 'open',
+          createdAt: Date.now(),
+          employeeId: employee?.id,
+          employeeName: employee?.name,
+        }
         set((s) => ({ orders: [...s.orders, order] }))
         return id
       },
 
-      addItemToOrder: (orderId, product) =>
+      setOrderEmployee: (orderId, employee) =>
+        set((s) => ({
+          orders: s.orders.map((o) =>
+            o.id === orderId
+              ? { ...o, employeeId: employee?.id, employeeName: employee?.name }
+              : o,
+          ),
+        })),
+
+      addItemToOrder: (orderId, product, qty = 1) =>
         set((s) => ({
           orders: s.orders.map((o) => {
             if (o.id !== orderId) return o
-            const existing = o.items.find((i) => i.productId === product.id && !i.note)
-            const items = existing
-              ? o.items.map((i) => (i.id === existing.id ? { ...i, qty: i.qty + 1 } : i))
+            if (qty <= 0) return o
+            // Unit items without notes merge into one line; weighed items are
+            // always their own line (each weighing is a distinct measurement).
+            const mergeable =
+              product.unit === 'each' ? o.items.find((i) => i.productId === product.id && !i.note) : undefined
+            const items = mergeable
+              ? o.items.map((i) => (i.id === mergeable.id ? { ...i, qty: i.qty + qty } : i))
               : [
                   ...o.items,
                   {
@@ -164,7 +192,8 @@ export const useStore = create<State>()(
                     productId: product.id,
                     name: product.name,
                     unitPrice: product.price,
-                    qty: 1,
+                    qty,
+                    unit: product.unit,
                   } as OrderItem,
                 ]
             return { ...o, items }
@@ -233,11 +262,14 @@ export const useStore = create<State>()(
           at: Date.now(),
           total: Math.round(total * 100) / 100,
           method,
+          employeeId: order.employeeId,
+          employeeName: order.employeeName,
           lines: order.items.map((i) => ({
             productId: i.productId,
             name: i.name,
             qty: i.qty,
             unitPrice: i.unitPrice,
+            unit: i.unit,
           })),
         }
         set((s) => ({
@@ -308,15 +340,69 @@ export const useStore = create<State>()(
           widgets: fresh.widgets,
         })
       },
+
+      importData: (data) =>
+        set({
+          seeded: true,
+          orders: [],
+          settings: data.settings,
+          categories: data.categories,
+          products: data.products,
+          rooms: data.rooms,
+          tables: data.tables,
+          sales: data.sales,
+          expenses: data.expenses,
+          widgets: data.widgets,
+          plan: data.plan,
+          trialEndsAt: data.trialEndsAt,
+        }),
     }),
-    { name: 'veronis-store', version: 1 },
+    {
+      name: 'veronis-store',
+      version: 2,
+      storage: createJSONStorage(() => (isLocalMode ? idbStorage : remoteStorage)),
+      // In server mode, hydration waits for sign-in (AuthGate calls rehydrate).
+      skipHydration: !isLocalMode,
+      // v1 (localStorage era) → v2: products/items gained `unit`, licensing fields
+      // became mandatory. Never lose data on upgrade.
+      migrate: (persisted: unknown, version: number) => {
+        const s = persisted as Record<string, any>
+        if (version < 2 && s) {
+          s.products = (s.products ?? []).map((p: any) => ({ unit: 'each', ...p }))
+          s.orders = (s.orders ?? []).map((o: any) => ({
+            ...o,
+            items: (o.items ?? []).map((i: any) => ({ unit: 'each', ...i })),
+          }))
+          s.plan = s.plan ?? 'basic'
+          s.trialEndsAt = s.trialEndsAt ?? Date.now() + TRIAL_DAYS * 86_400_000
+        }
+        return s as any
+      },
+    },
   ),
 )
 
-// Live sync across browser tabs (e.g. a kitchen display in a second window):
-// when another tab writes the store, rehydrate this one.
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'veronis-store') void useStore.persist.rehydrate()
+// Live sync across tabs/windows (e.g. a kitchen display in a second window).
+// IndexedDB writes don't emit cross-tab events, so tabs notify each other.
+if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+  const channel = new BroadcastChannel('veronis-sync')
+  let applyingRemote = false
+  let broadcastPending = false
+
+  useStore.subscribe(() => {
+    if (applyingRemote || broadcastPending) return
+    broadcastPending = true
+    // batch rapid changes; give the async persist write time to flush first
+    setTimeout(() => {
+      broadcastPending = false
+      channel.postMessage('sync')
+    }, 250)
   })
+
+  channel.onmessage = () => {
+    applyingRemote = true
+    Promise.resolve(useStore.persist.rehydrate()).finally(() => {
+      applyingRemote = false
+    })
+  }
 }

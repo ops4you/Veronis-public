@@ -175,6 +175,31 @@ export function categoryMix(
   return [...head, { name: 'Other', value: rest }]
 }
 
+export interface EmployeeStat {
+  employeeId: string | null
+  name: string
+  revenue: number
+  orders: number
+}
+
+/** Revenue and order count per employee, biggest earner first. */
+export function salesByEmployee(sales: Sale[]): EmployeeStat[] {
+  const map = new Map<string, EmployeeStat>()
+  for (const s of sales) {
+    const key = s.employeeId ?? '—'
+    const cur = map.get(key) ?? {
+      employeeId: s.employeeId ?? null,
+      name: s.employeeName ?? 'Unassigned',
+      revenue: 0,
+      orders: 0,
+    }
+    cur.revenue += s.total
+    cur.orders += 1
+    map.set(key, cur)
+  }
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue)
+}
+
 export function paymentMix(sales: Sale[]): { cash: number; card: number } {
   let cash = 0
   let card = 0

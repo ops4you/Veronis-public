@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react'
-import { ArrowLeft, ChefHat, Minus, Plus, ReceiptText, ShoppingBag, StickyNote, Trash2, Users } from 'lucide-react'
-import type { Order, OrderStatus, Table } from '../lib/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, ChefHat, Minus, Plus, ReceiptText, Scale, ScanBarcode, ShoppingBag, StickyNote, Trash2, Users } from 'lucide-react'
+import type { Order, OrderStatus, Product, Table } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtMoney } from '../lib/format'
+import { fmtQty, resolveScan, ScanBuffer } from '../lib/barcode'
 import { BillModal } from '../components/pos/BillModal'
+import { Modal } from '../components/ui/Modal'
+import { useAuth } from '../auth/AuthContext'
+import { api, type TeamMember } from '../lib/api'
+import { isLocalMode } from '../lib/mode'
 
 const STATUS_STYLE: Record<OrderStatus, { label: string; tile: string; chip: string }> = {
   open: { label: 'Taking order', tile: 'border-amber-400 bg-amber-50', chip: 'bg-amber-100 text-amber-800' },
@@ -14,8 +19,10 @@ const STATUS_STYLE: Record<OrderStatus, { label: string; tile: string; chip: str
 
 export function PosPage() {
   const { rooms, tables, orders, settings, openOrder } = useStore()
+  const { user } = useAuth()
   const [roomId, setRoomId] = useState<string | null>(null)
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
+  const me = user ? { id: user.id, name: user.name } : undefined
 
   const currentRoomId = roomId ?? rooms[0]?.id ?? null
   const activeOrder = orders.find((o) => o.id === activeOrderId) ?? null
@@ -36,7 +43,7 @@ export function PosPage() {
           <p className="text-sm text-stone-500">Tap a table to take an order</p>
         </div>
         <button
-          onClick={() => setActiveOrderId(openOrder(null))}
+          onClick={() => setActiveOrderId(openOrder(null, me))}
           className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
         >
           <ShoppingBag size={16} /> Counter sale
@@ -68,7 +75,7 @@ export function PosPage() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {roomTables.map((t) => (
-            <TableTile key={t.id} table={t} order={orderFor(t.id)} currency={settings.currency} onOpen={() => setActiveOrderId(openOrder(t.id))} />
+            <TableTile key={t.id} table={t} order={orderFor(t.id)} currency={settings.currency} onOpen={() => setActiveOrderId(openOrder(t.id, me))} />
           ))}
         </div>
       )}
@@ -158,10 +165,49 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
     removeItem,
     sendToKitchen,
     cancelOrder,
+    setOrderEmployee,
   } = useStore()
   const [catId, setCatId] = useState<string | null>(null)
   const [billOpen, setBillOpen] = useState(false)
   const [noteFor, setNoteFor] = useState<string | null>(null)
+  const [weighing, setWeighing] = useState<Product | null>(null)
+  const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const scanMsgTimer = useRef<number | undefined>(undefined)
+
+  const flashScan = (text: string, ok: boolean) => {
+    setScanMsg({ text, ok })
+    window.clearTimeout(scanMsgTimer.current)
+    scanMsgTimer.current = window.setTimeout(() => setScanMsg(null), 2500)
+  }
+
+  // USB barcode scanners act as very fast keyboards ending with Enter.
+  useEffect(() => {
+    const buffer = new ScanBuffer((code) => {
+      const res = resolveScan(code, products)
+      if (!res) {
+        flashScan(`Unknown barcode: ${code}`, false)
+        return
+      }
+      if (res.needsWeight) {
+        setWeighing(res.product)
+        return
+      }
+      addItemToOrder(order.id, res.product, res.qty)
+      flashScan(
+        res.product.unit === 'kg'
+          ? `${res.product.name} — ${fmtQty(res.qty, 'kg')}`
+          : `${res.product.name} added`,
+        true,
+      )
+    })
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return
+      if (buffer.key(e.key)) e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [products, order.id, addItemToOrder])
 
   const table = tables.find((t) => t.id === order.tableId)
   const title = table ? `Table ${table.name}` : 'Counter sale'
@@ -189,6 +235,17 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
             <h1 className="truncate text-xl font-bold text-stone-900">{title}</h1>
           </div>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${st.chip}`}>{st.label}</span>
+          {!isLocalMode && <ServedByChip order={order} onPick={(emp) => setOrderEmployee(order.id, emp)} />}
+          {scanMsg && (
+            <span
+              role="status"
+              className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                scanMsg.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}
+            >
+              <ScanBarcode size={13} /> {scanMsg.text}
+            </span>
+          )}
         </header>
 
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -222,11 +279,18 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
             {activeProducts.map((p) => (
               <button
                 key={p.id}
-                onClick={() => addItemToOrder(order.id, p)}
+                onClick={() => (p.unit === 'kg' ? setWeighing(p) : addItemToOrder(order.id, p))}
                 className="rounded-xl border border-stone-200 bg-white p-3 text-left shadow-card transition-transform hover:border-brand-500 active:scale-[0.97]"
               >
                 <span className="block min-h-[2.4em] text-sm font-medium leading-snug text-stone-900">{p.name}</span>
-                <span className="mt-1 block text-sm font-semibold text-brand-600">{money(p.price)}</span>
+                <span className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-brand-600">
+                  {money(p.price)}
+                  {p.unit === 'kg' && (
+                    <span className="flex items-center gap-0.5 text-[11px] font-medium text-stone-400">
+                      /kg <Scale size={11} />
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -246,25 +310,34 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
               {order.items.map((i) => (
                 <li key={i.id} className="py-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center rounded-lg border border-stone-200">
-                      <button
-                        onClick={() => setItemQty(order.id, i.id, i.qty - 1)}
-                        className="p-1.5 text-stone-500 hover:text-stone-900"
-                        aria-label={`One less ${i.name}`}
+                    {i.unit === 'kg' ? (
+                      <span
+                        className="flex items-center gap-1 rounded-lg border border-stone-200 px-2 py-1.5 text-xs font-semibold text-stone-700"
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
                       >
-                        <Minus size={14} />
-                      </button>
-                      <span className="w-6 text-center text-sm font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {i.qty}
+                        <Scale size={12} className="text-stone-400" /> {fmtQty(i.qty, 'kg')}
                       </span>
-                      <button
-                        onClick={() => setItemQty(order.id, i.id, i.qty + 1)}
-                        className="p-1.5 text-stone-500 hover:text-stone-900"
-                        aria-label={`One more ${i.name}`}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex items-center rounded-lg border border-stone-200">
+                        <button
+                          onClick={() => setItemQty(order.id, i.id, i.qty - 1)}
+                          className="p-1.5 text-stone-500 hover:text-stone-900"
+                          aria-label={`One less ${i.name}`}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {i.qty}
+                        </span>
+                        <button
+                          onClick={() => setItemQty(order.id, i.id, i.qty + 1)}
+                          className="p-1.5 text-stone-500 hover:text-stone-900"
+                          aria-label={`One more ${i.name}`}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
                     <span className="min-w-0 flex-1 truncate text-sm text-stone-800">{i.name}</span>
                     <span className="text-sm font-medium text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {money(i.qty * i.unitPrice)}
@@ -335,6 +408,153 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
       </aside>
 
       {billOpen && <BillModal order={order} tableName={table?.name ?? null} onClose={() => setBillOpen(false)} onPaid={onBack} />}
+      {weighing && (
+        <WeightModal
+          product={weighing}
+          currency={settings.currency}
+          onClose={() => setWeighing(null)}
+          onConfirm={(kg) => {
+            addItemToOrder(order.id, weighing, kg)
+            setWeighing(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function ServedByChip({
+  order,
+  onPick,
+}: {
+  order: Order
+  onPick: (emp: { id: string; name: string } | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [team, setTeam] = useState<TeamMember[] | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open || team !== null) return
+    api
+      .listUsers()
+      .then(({ users }) => setTeam(users))
+      .catch(() => setTeam([]))
+  }, [open, team])
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-600 hover:bg-stone-50"
+        aria-expanded={open}
+      >
+        <Users size={12} className="text-stone-400" />
+        {order.employeeName ?? 'Served by…'}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-8 z-30 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
+          {team === null ? (
+            <p className="px-2 py-1.5 text-xs text-stone-400">Loading team…</p>
+          ) : team.length === 0 ? (
+            <p className="px-2 py-1.5 text-xs text-stone-400">No team members yet</p>
+          ) : (
+            team.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  onPick({ id: m.id, name: m.name })
+                  setOpen(false)
+                }}
+                className={`block w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-stone-100 ${
+                  m.id === order.employeeId ? 'font-semibold text-stone-900' : 'text-stone-600'
+                }`}
+              >
+                {m.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeightModal({
+  product,
+  currency,
+  onClose,
+  onConfirm,
+}: {
+  product: Product
+  currency: string
+  onClose: () => void
+  onConfirm: (kg: number) => void
+}) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const kg = Number(value.replace(',', '.'))
+  const valid = Number.isFinite(kg) && kg > 0 && kg < 1000
+
+  return (
+    <Modal title={`Weigh: ${product.name}`} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!valid) {
+            setError('Enter the weight in kilograms, e.g. 0.485')
+            return
+          }
+          onConfirm(Math.round(kg * 1000) / 1000)
+        }}
+        className="space-y-3"
+      >
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-stone-700">Weight (kg)</span>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            inputMode="decimal"
+            placeholder="0.485"
+            autoFocus
+            className="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold focus:border-brand-500 focus:outline-none"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          />
+        </label>
+        <p className="text-sm text-stone-500">
+          {fmtMoney(product.price, currency)}/kg
+          {valid && (
+            <span className="float-right font-semibold text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              = {fmtMoney(kg * product.price, currency)}
+            </span>
+          )}
+        </p>
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            Add to ticket
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }

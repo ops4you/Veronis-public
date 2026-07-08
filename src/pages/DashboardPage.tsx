@@ -8,6 +8,10 @@ import { WIDGET_META, WidgetBody, widgetSubtitle } from '../components/widgets/r
 import { Modal } from '../components/ui/Modal'
 import { accent } from '../lib/palette'
 import { WIDGET_MIN_PLAN, effectivePlan, planAllows, planName } from '../lib/plans'
+import { useAuth } from '../auth/AuthContext'
+import { BarChart } from '../components/charts/BarChart'
+import { avgTicket, dailyTotals, hourlyTotals, periodRange, salesIn, sumSales } from '../lib/analytics'
+import { fmtMoney, fmtNumber } from '../lib/format'
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -17,6 +21,12 @@ const PERIODS: { key: Period; label: string }[] = [
 ]
 
 export function DashboardPage() {
+  const { user, isAdmin } = useAuth()
+  if (!isAdmin && user) return <EmployeeDashboard userId={user.id} userName={user.name} />
+  return <AdminDashboard />
+}
+
+function AdminDashboard() {
   const { widgets, settings, addWidget, plan, trialEndsAt } = useStore()
   const [period, setPeriod] = useState<Period>('7d')
   const [adding, setAdding] = useState(false)
@@ -89,7 +99,90 @@ export function DashboardPage() {
       )}
 
       {adding && (
-        <Modal title="Add a widget" onClose={() => setAdding(false)} wide>
+        <AddWidgetModal available={available} currentPlan={currentPlan} onClose={() => setAdding(false)} onAdd={(t) => addWidget(t)} navigate={navigate} />
+      )}
+    </div>
+  )
+}
+
+function EmployeeDashboard({ userId, userName }: { userId: string; userName: string }) {
+  const { sales, settings } = useStore()
+  const [period, setPeriod] = useState<Period>('7d')
+  const mySales = sales.filter((s) => s.employeeId === userId)
+  const r = periodRange(period)
+  const inPeriod = salesIn(mySales, r)
+  const money = (v: number) => fmtMoney(v, settings.currency)
+  const points = period === 'today' ? hourlyTotals(inPeriod, r) : dailyTotals(inPeriod, r)
+
+  const cards = [
+    { label: 'My sales', value: money(sumSales(inPeriod)) },
+    { label: 'Orders served', value: fmtNumber(inPeriod.length) },
+    { label: 'Average ticket', value: money(avgTicket(inPeriod)) },
+  ]
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-bold text-stone-900">My sales</h1>
+          <p className="text-sm text-stone-500">Nice work, {userName} — here is what you sold</p>
+        </div>
+        <div className="flex rounded-xl border border-stone-200 bg-white p-0.5" role="tablist" aria-label="Period">
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              role="tab"
+              aria-selected={period === p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`rounded-[10px] px-3 py-1.5 text-sm font-medium ${
+                period === p.key ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {cards.map((c) => (
+          <div key={c.label} className="rounded-2xl border border-stone-200/80 bg-surface p-4 shadow-card">
+            <p className="text-sm font-medium text-stone-500">{c.label}</p>
+            <p className="mt-1 text-[1.7rem] font-semibold leading-none text-stone-900">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-stone-200/80 bg-surface p-4 shadow-card">
+        <h2 className="mb-2 text-sm font-semibold text-stone-900">My sales over time</h2>
+        <div className="h-52">
+          <BarChart
+            data={points.map((p) => ({ label: p.label, value: Math.round(p.total * 100) / 100 }))}
+            color="#2a78d6"
+            formatValue={money}
+            height={200}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AddWidgetModal({
+  available,
+  currentPlan,
+  onClose,
+  onAdd,
+  navigate,
+}: {
+  available: WidgetType[]
+  currentPlan: ReturnType<typeof effectivePlan>
+  onClose: () => void
+  onAdd: (t: WidgetType) => void
+  navigate: ReturnType<typeof useNavigate>
+}) {
+  return (
+        <Modal title="Add a widget" onClose={onClose} wide>
           {available.length === 0 ? (
             <p className="py-6 text-center text-sm text-stone-500">Every widget is already on your dashboard.</p>
           ) : (
@@ -105,12 +198,12 @@ export function DashboardPage() {
                     key={type}
                     onClick={() => {
                       if (locked) {
-                        setAdding(false)
+                        onClose()
                         navigate('/plans')
                         return
                       }
-                      addWidget(type)
-                      setAdding(false)
+                      onAdd(type)
+                      onClose()
                     }}
                     className={`flex items-start gap-3 rounded-xl border p-3 text-left ${
                       locked
@@ -141,7 +234,5 @@ export function DashboardPage() {
             </div>
           )}
         </Modal>
-      )}
-    </div>
   )
 }

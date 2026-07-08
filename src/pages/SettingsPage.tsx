@@ -1,9 +1,12 @@
-import { type ReactNode } from 'react'
-import { Lock, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Download, Lock, Plus, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { DAY_NAMES, fmtHour } from '../lib/format'
 import { effectivePlan, maxRooms, maxTables } from '../lib/plans'
+import { downloadBackupFile, validateBackup } from '../lib/backup'
+import { api, ApiError, type TeamMember } from '../lib/api'
+import { isLocalMode } from '../lib/mode'
 
 export function SettingsPage() {
   const {
@@ -190,28 +193,292 @@ export function SettingsPage() {
         </div>
       </Section>
 
+      {/* Account & team (web accounts) */}
+      {!isLocalMode && <AccountSection />}
+      {!isLocalMode && <TeamSection />}
+
       {/* Data */}
-      <Section title="Data" hint="Everything is stored locally in this browser.">
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-              if (window.confirm('Replace everything with the demo data (Café Aurora)?')) seedDemo()
-            }}
-            className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-          >
-            Load demo data
-          </button>
-          <button
-            onClick={() => {
-              if (window.confirm('Delete ALL data — sales, menu, tables, everything? This cannot be undone.')) clearAllData()
-            }}
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
-          >
-            Clear all data
-          </button>
-        </div>
-      </Section>
+      <DataSection seedDemo={seedDemo} clearAllData={clearAllData} />
     </div>
+  )
+}
+
+function AccountSection() {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const input =
+    'w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none'
+
+  return (
+    <Section title="Account" hint="Changing your password signs you out everywhere else.">
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault()
+          setMessage(null)
+          if (next !== confirm) {
+            setMessage({ text: 'The new passwords do not match.', ok: false })
+            return
+          }
+          setBusy(true)
+          try {
+            await api.changePassword(current, next)
+            setCurrent('')
+            setNext('')
+            setConfirm('')
+            setMessage({ text: 'Password changed.', ok: true })
+          } catch (err) {
+            setMessage({ text: err instanceof ApiError ? err.message : 'Could not reach the server.', ok: false })
+          } finally {
+            setBusy(false)
+          }
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <label className="min-w-40 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">Current password</span>
+          <input className={input} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+        </label>
+        <label className="min-w-40 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">New password (min. 8)</span>
+          <input className={input} type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+        </label>
+        <label className="min-w-40 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">Repeat new password</span>
+          <input className={input} type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+        </label>
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-xl bg-stone-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+        >
+          Change password
+        </button>
+      </form>
+      {message && (
+        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+          {message.text}
+        </p>
+      )}
+    </Section>
+  )
+}
+
+function TeamSection() {
+  const [team, setTeam] = useState<TeamMember[] | null>(null)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = () =>
+    api
+      .listUsers()
+      .then(({ users }) => setTeam(users))
+      .catch(() => setTeam([]))
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  const addEmployee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setMessage(null)
+    try {
+      const { invited } = await api.createEmployee(name.trim(), email.trim(), password)
+      setName('')
+      setEmail('')
+      setPassword('')
+      setMessage({
+        text: invited
+          ? 'Invite sent — they choose their own password from the email link (valid 48 h).'
+          : 'Employee account created — share the email and password with them.',
+        ok: true,
+      })
+      await load()
+    } catch (err) {
+      setMessage({ text: err instanceof ApiError ? err.message : 'Could not reach the server.', ok: false })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const input =
+    'w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none'
+
+  return (
+    <Section
+      title="Team"
+      hint="Employees sign in with their own email and password. They see Service, Kitchen and their own sales only."
+    >
+      {team === null ? (
+        <p className="text-sm text-stone-400">Loading team…</p>
+      ) : (
+        <ul className="mb-4 divide-y divide-stone-100 rounded-xl border border-stone-200">
+          {team.map((m) => (
+            <li key={m.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-xs font-bold text-white">
+                {m.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-stone-800">{m.name}</span>
+                {m.email && <span className="block truncate text-xs text-stone-400">{m.email}</span>}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  m.role === 'admin' ? 'bg-brand-50 text-brand-700' : 'bg-stone-100 text-stone-500'
+                }`}
+              >
+                {m.role}
+              </span>
+              {m.role === 'employee' && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Remove ${m.name}'s account? Their past sales stay attributed to them.`)) return
+                    try {
+                      await api.deleteEmployee(m.id)
+                      await load()
+                    } catch (err) {
+                      setMessage({ text: err instanceof ApiError ? err.message : 'Could not remove.', ok: false })
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-600"
+                  aria-label={`Remove ${m.name}`}
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={addEmployee} className="flex flex-wrap items-end gap-2">
+        <label className="min-w-36 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">Name</span>
+          <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Miguel Costa" />
+        </label>
+        <label className="min-w-48 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">Email</span>
+          <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="miguel@cafe.pt" />
+        </label>
+        <label className="min-w-40 flex-1">
+          <span className="mb-1 block text-xs font-medium text-stone-500">Password (optional)</span>
+          <input className={input} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="empty = email an invite" />
+        </label>
+        <button
+          type="submit"
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+        >
+          <UserPlus size={15} /> Add employee
+        </button>
+      </form>
+      {message && (
+        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>
+          {message.text}
+        </p>
+      )}
+    </Section>
+  )
+}
+
+function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAllData: () => void }) {
+  const store = useStore()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+
+  const handleExport = () => {
+    downloadBackupFile({
+      settings: store.settings,
+      categories: store.categories,
+      products: store.products,
+      rooms: store.rooms,
+      tables: store.tables,
+      sales: store.sales,
+      expenses: store.expenses,
+      widgets: store.widgets,
+      plan: store.plan,
+      trialEndsAt: store.trialEndsAt,
+    })
+    setMessage({ text: 'Backup downloaded. Keep it somewhere safe (cloud drive, USB stick).', ok: true })
+  }
+
+  const handleImportFile = async (file: File) => {
+    const text = await file.text()
+    const result = validateBackup(text)
+    if (!result.ok) {
+      setMessage({ text: result.error, ok: false })
+      return
+    }
+    const when = new Date(result.data.sales[result.data.sales.length - 1]?.at ?? 0)
+    if (
+      window.confirm(
+        `Restore this backup? It contains ${result.data.sales.length} sales (latest: ${when.toLocaleDateString()}), ${result.data.products.length} products.\n\nThis REPLACES everything currently in the app.`,
+      )
+    ) {
+      store.importData(result.data)
+      setMessage({ text: 'Backup restored.', ok: true })
+    }
+  }
+
+  return (
+    <Section title="Data" hint="Everything is stored locally on this machine. Export a backup regularly.">
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+        >
+          <Download size={15} /> Export backup
+        </button>
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+        >
+          <Upload size={15} /> Import backup
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void handleImportFile(f)
+            e.target.value = ''
+          }}
+        />
+        <button
+          onClick={() => {
+            if (window.confirm('Replace everything with the demo data (Café Aurora)?')) seedDemo()
+          }}
+          className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+        >
+          Load demo data
+        </button>
+        <button
+          onClick={() => {
+            if (window.confirm('Delete ALL data — sales, menu, tables, everything? This cannot be undone.')) clearAllData()
+          }}
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+        >
+          Clear all data
+        </button>
+      </div>
+      {message && (
+        <p
+          role="status"
+          className={`mt-3 rounded-lg px-3 py-2 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}
+        >
+          {message.text}
+        </p>
+      )}
+    </Section>
   )
 }
 

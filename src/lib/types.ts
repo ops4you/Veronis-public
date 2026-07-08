@@ -3,12 +3,22 @@ export interface Category {
   name: string
 }
 
+/** 'each' = priced per unit; 'kg' = weighed (price is per kilogram) */
+export type ProductUnit = 'each' | 'kg'
+
 export interface Product {
   id: string
   name: string
+  /** unit price, or price per kg for weighed products */
   price: number
   categoryId: string
   active: boolean
+  unit: ProductUnit
+  /**
+   * Scannable code. Either a full product barcode (EAN-13/EAN-8/other), or a
+   * 7-digit in-store prefix starting with "2" for weight-embedded scale labels.
+   */
+  barcode?: string
 }
 
 export interface Room {
@@ -28,7 +38,9 @@ export interface OrderItem {
   productId: string
   name: string
   unitPrice: number
+  /** units, or kilograms when unit === 'kg' (fractional) */
   qty: number
+  unit: ProductUnit
   note?: string
 }
 
@@ -48,6 +60,9 @@ export interface Order {
   createdAt: number
   sentAt?: number
   readyAt?: number
+  /** who is serving this order (web accounts, or unset on the desktop build) */
+  employeeId?: string
+  employeeName?: string
 }
 
 export type PayMethod = 'cash' | 'card'
@@ -57,6 +72,7 @@ export interface SaleLine {
   name: string
   qty: number
   unitPrice: number
+  unit?: ProductUnit
 }
 
 export interface Sale {
@@ -65,6 +81,8 @@ export interface Sale {
   total: number
   method: PayMethod
   lines: SaleLine[]
+  employeeId?: string
+  employeeName?: string
 }
 
 export interface Expense {
@@ -87,6 +105,7 @@ export type WidgetType =
   | 'paymentMix'
   | 'deadHours'
   | 'recentSales'
+  | 'salesByEmployee'
 
 export type AccentKey =
   | 'blue'

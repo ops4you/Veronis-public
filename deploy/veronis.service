@@ -1,0 +1,32 @@
+[Unit]
+Description=Veronis server
+After=network.target
+
+[Service]
+Type=simple
+User=veronis
+WorkingDirectory=/opt/veronis/server
+ExecStart=/usr/bin/node index.mjs
+Restart=always
+RestartSec=3
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=APP_URL=https://app.YOURDOMAIN.pt
+# Email (example: Brevo SMTP — free tier is plenty to start)
+Environment=SMTP_HOST=smtp-relay.brevo.com
+Environment=SMTP_PORT=587
+Environment=SMTP_USER=YOUR_SMTP_LOGIN
+Environment=SMTP_PASS=YOUR_SMTP_KEY
+Environment=MAIL_FROM=Veronis <no-reply@YOURDOMAIN.pt>
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/veronis/server/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# Caddy handles HTTPS automatically (Let's Encrypt) — no certificates to manage.
+app.YOURDOMAIN.pt {
+	reverse_proxy localhost:8787
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+}

@@ -6,19 +6,21 @@ import {
   HandPlatter,
   History,
   LayoutDashboard,
+  LogOut,
   Settings,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { effectivePlan, planName, trialDaysLeft } from '../../lib/plans'
+import { useAuth } from '../../auth/AuthContext'
 
 const LINKS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/service', label: 'Service', icon: HandPlatter },
-  { to: '/kitchen', label: 'Kitchen', icon: ChefHat },
-  { to: '/menu', label: 'Menu', icon: BookOpen },
-  { to: '/history', label: 'History', icon: History },
-  { to: '/plans', label: 'Plans', icon: Crown },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, adminOnly: false },
+  { to: '/service', label: 'Service', icon: HandPlatter, adminOnly: false },
+  { to: '/kitchen', label: 'Kitchen', icon: ChefHat, adminOnly: false },
+  { to: '/menu', label: 'Menu', icon: BookOpen, adminOnly: true },
+  { to: '/history', label: 'History', icon: History, adminOnly: true },
+  { to: '/plans', label: 'Plans', icon: Crown, adminOnly: true },
+  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ]
 
 export function Sidebar() {
@@ -26,6 +28,8 @@ export function Sidebar() {
   const plan = useStore((s) => s.plan)
   const trialEndsAt = useStore((s) => s.trialEndsAt)
   const daysLeft = trialDaysLeft(trialEndsAt)
+  const { user, isAdmin, logout } = useAuth()
+  const links = LINKS.filter((l) => isAdmin || !l.adminOnly)
 
   return (
     <nav
@@ -39,7 +43,7 @@ export function Sidebar() {
         <span className="hidden text-lg font-bold tracking-tight text-stone-900 lg:block">Veronis</span>
       </div>
       <ul className="flex-1 space-y-1 px-2 lg:px-3">
-        {LINKS.map(({ to, label, icon: Icon, end }) => (
+        {links.map(({ to, label, icon: Icon, end }) => (
           <li key={to}>
             <NavLink
               to={to}
@@ -65,22 +69,43 @@ export function Sidebar() {
         ))}
       </ul>
       <div className="hidden px-3 pb-4 lg:block">
-        <NavLink
-          to="/plans"
-          className="block rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 hover:border-stone-300"
-        >
-          {daysLeft > 0 ? (
-            <>
-              <span className="block text-xs font-semibold text-violet-700">Premium trial · {daysLeft}d left</span>
-              <span className="block text-[11px] text-stone-500">then {planName(effectivePlan(plan, null))} — see plans</span>
-            </>
-          ) : (
-            <>
-              <span className="block text-xs font-semibold text-stone-700">{planName(plan)} plan</span>
-              <span className="block text-[11px] text-stone-500">upgrade or change</span>
-            </>
-          )}
-        </NavLink>
+        {isAdmin && (
+          <NavLink
+            to="/plans"
+            className="block rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 hover:border-stone-300"
+          >
+            {daysLeft > 0 ? (
+              <>
+                <span className="block text-xs font-semibold text-violet-700">Premium trial · {daysLeft}d left</span>
+                <span className="block text-[11px] text-stone-500">then {planName(effectivePlan(plan, null))} — see plans</span>
+              </>
+            ) : (
+              <>
+                <span className="block text-xs font-semibold text-stone-700">{planName(plan)} plan</span>
+                <span className="block text-[11px] text-stone-500">upgrade or change</span>
+              </>
+            )}
+          </NavLink>
+        )}
+        {user && (
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-stone-200 px-3 py-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-xs font-bold text-white">
+              {user.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-stone-800">{user.name}</span>
+              <span className="block text-[10px] uppercase tracking-wide text-stone-400">{user.role}</span>
+            </span>
+            <button
+              onClick={() => void logout()}
+              className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
         <p className="mt-3 px-1 text-[11px] text-stone-400">Veronis · run your place, simply</p>
       </div>
     </nav>
