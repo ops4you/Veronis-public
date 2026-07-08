@@ -2,3 +2,10 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# build outputs & archived artifacts
+release*/
+past versions/
+
+# live data & secrets — never commit
+server/data/
