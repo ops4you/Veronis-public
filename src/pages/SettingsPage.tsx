@@ -7,8 +7,10 @@ import { effectivePlan, maxRooms, maxTables } from '../lib/plans'
 import { downloadBackupFile, validateBackup } from '../lib/backup'
 import { api, ApiError, type TeamMember } from '../lib/api'
 import { isLocalMode } from '../lib/mode'
+import { useTranslation } from '../lib/i18n'
 
 export function SettingsPage() {
+  const { t } = useTranslation()
   const {
     settings,
     rooms,
@@ -32,15 +34,15 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="text-xl font-bold text-stone-900">Settings</h1>
-        <p className="text-sm text-stone-500">Make Veronis fit your business</p>
+        <h1 className="text-xl font-bold text-stone-900">{t('settings.title')}</h1>
+        <p className="text-sm text-stone-500">{t('settings.subtitle')}</p>
       </header>
 
       {/* Business */}
-      <Section title="Business">
+      <Section title={t('settings.business')}>
         <div className="flex flex-wrap gap-3">
           <label className="min-w-56 flex-1">
-            <span className="mb-1 block text-xs font-medium text-stone-500">Business name</span>
+            <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.businessName')}</span>
             <input
               value={settings.businessName}
               onChange={(e) => updateSettings({ businessName: e.target.value })}
@@ -48,7 +50,7 @@ export function SettingsPage() {
             />
           </label>
           <label className="w-40">
-            <span className="mb-1 block text-xs font-medium text-stone-500">Currency</span>
+            <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.currency')}</span>
             <select
               value={settings.currency}
               onChange={(e) => updateSettings({ currency: e.target.value })}
@@ -65,8 +67,8 @@ export function SettingsPage() {
 
       {/* Opening hours */}
       <Section
-        title="Opening hours"
-        hint="The quiet-hours widget only looks at hours you are actually open."
+        title={t('settings.openingHours')}
+        hint={t('settings.openingHoursHint')}
       >
         <div className="mb-3 flex flex-wrap gap-1.5">
           {[1, 2, 3, 4, 5, 6, 0].map((d) => {
@@ -96,7 +98,7 @@ export function SettingsPage() {
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-stone-600">
-            Open from
+            {t('settings.openFrom')}
             <HourSelect
               value={settings.opening.openHour}
               max={settings.opening.closeHour - 1}
@@ -104,7 +106,7 @@ export function SettingsPage() {
             />
           </label>
           <label className="flex items-center gap-2 text-sm text-stone-600">
-            until
+            {t('settings.until')}
             <HourSelect
               value={settings.opening.closeHour}
               min={settings.opening.openHour + 1}
@@ -115,7 +117,7 @@ export function SettingsPage() {
       </Section>
 
       {/* Rooms & tables */}
-      <Section title="Rooms & tables" hint="This is the layout the Service page shows.">
+      <Section title={t('settings.roomsTables')} hint={t('settings.roomsTablesHint')}>
         <div className="space-y-4">
           {rooms.map((room) => {
             const roomTables = tables.filter((t) => t.roomId === room.id)
@@ -128,10 +130,10 @@ export function SettingsPage() {
                     className="rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-stone-900 hover:border-stone-200 focus:border-brand-500 focus:outline-none"
                     aria-label="Room name"
                   />
-                  <span className="text-xs text-stone-400">{roomTables.length} tables</span>
+                  <span className="text-xs text-stone-400">{t('settings.tablesCount', { count: roomTables.length })}</span>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete room "${room.name}" and its tables?`)) deleteRoom(room.id)
+                      if (window.confirm(t('settings.deleteRoomConfirm', { name: room.name }))) deleteRoom(room.id)
                     }}
                     className="ml-auto rounded-lg p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-600"
                     aria-label={`Delete ${room.name}`}
@@ -140,14 +142,14 @@ export function SettingsPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {roomTables.map((t) => (
-                    <span key={t.id} className="group flex items-center gap-1.5 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-sm">
-                      <span className="font-medium text-stone-800">{t.name}</span>
-                      <span className="text-xs text-stone-400">{t.seats}p</span>
+                  {roomTables.map((tbl) => (
+                    <span key={tbl.id} className="group flex items-center gap-1.5 rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-sm">
+                      <span className="font-medium text-stone-800">{tbl.name}</span>
+                      <span className="text-xs text-stone-400">{t('settings.tableSeats', { seats: tbl.seats })}</span>
                       <button
-                        onClick={() => deleteTable(t.id)}
+                        onClick={() => deleteTable(tbl.id)}
                         className="text-stone-300 hover:text-red-600"
-                        aria-label={`Remove table ${t.name}`}
+                        aria-label={t('settings.removeTableLabel', { name: tbl.name })}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -157,9 +159,9 @@ export function SettingsPage() {
                     <Link
                       to="/plans"
                       className="flex items-center gap-1 rounded-lg border border-dashed border-stone-300 px-2.5 py-1 text-sm text-stone-400 hover:text-stone-600"
-                      title="The Basic plan includes up to 10 tables"
+                      title={t('settings.tableLimitHint')}
                     >
-                      <Lock size={12} /> Table limit — see plans
+                      <Lock size={12} /> {t('settings.tableLimit')}
                     </Link>
                   ) : (
                     <AddTableButton
@@ -175,19 +177,19 @@ export function SettingsPage() {
             <Link
               to="/plans"
               className="flex w-fit items-center gap-1.5 rounded-xl border border-dashed border-stone-300 px-3.5 py-2 text-sm text-stone-400 hover:text-stone-600"
-              title="The Basic plan includes 1 room"
+              title={t('settings.roomLimitHint')}
             >
-              <Lock size={14} /> More rooms are included in Standard — see plans
+              <Lock size={14} /> {t('settings.roomLimit')}
             </Link>
           ) : (
             <button
               onClick={() => {
-                const name = window.prompt('Room name (e.g. Terrace)')
+                const name = window.prompt(t('settings.roomNamePlaceholder'))
                 if (name?.trim()) addRoom(name.trim())
               }}
               className="flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 px-3.5 py-2 text-sm text-stone-500 hover:border-stone-400 hover:text-stone-700"
             >
-              <Plus size={15} /> Add room
+              <Plus size={15} /> {t('settings.addRoom')}
             </button>
           )}
         </div>
@@ -204,6 +206,7 @@ export function SettingsPage() {
 }
 
 function AccountSection() {
+  const { t } = useTranslation()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -214,13 +217,13 @@ function AccountSection() {
     'w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none'
 
   return (
-    <Section title="Account" hint="Changing your password signs you out everywhere else.">
+    <Section title={t('settings.account')} hint={t('settings.accountHint')}>
       <form
         onSubmit={async (e) => {
           e.preventDefault()
           setMessage(null)
           if (next !== confirm) {
-            setMessage({ text: 'The new passwords do not match.', ok: false })
+            setMessage({ text: t('settings.passwordsDoNotMatch'), ok: false })
             return
           }
           setBusy(true)
@@ -229,9 +232,9 @@ function AccountSection() {
             setCurrent('')
             setNext('')
             setConfirm('')
-            setMessage({ text: 'Password changed.', ok: true })
+            setMessage({ text: t('settings.passwordChanged'), ok: true })
           } catch (err) {
-            setMessage({ text: err instanceof ApiError ? err.message : 'Could not reach the server.', ok: false })
+            setMessage({ text: err instanceof ApiError ? err.message : t('settings.couldNotReachServer'), ok: false })
           } finally {
             setBusy(false)
           }
@@ -239,15 +242,15 @@ function AccountSection() {
         className="flex flex-wrap items-end gap-2"
       >
         <label className="min-w-40 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Current password</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.currentPassword')}</span>
           <input className={input} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </label>
         <label className="min-w-40 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">New password (min. 8)</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.newPassword')}</span>
           <input className={input} type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
         </label>
         <label className="min-w-40 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Repeat new password</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.repeatNewPassword')}</span>
           <input className={input} type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
         </label>
         <button
@@ -255,7 +258,7 @@ function AccountSection() {
           disabled={busy}
           className="rounded-xl bg-stone-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
         >
-          Change password
+          {t('settings.changePassword')}
         </button>
       </form>
       {message && (
@@ -268,6 +271,7 @@ function AccountSection() {
 }
 
 function TeamSection() {
+  const { t, lang } = useTranslation()
   const [team, setTeam] = useState<TeamMember[] | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -296,16 +300,21 @@ function TeamSection() {
       setPassword('')
       setMessage({
         text: invited
-          ? 'Invite sent — they choose their own password from the email link (valid 48 h).'
-          : 'Employee account created — share the email and password with them.',
+          ? t('settings.employeeInvited')
+          : t('settings.employeeCreated'),
         ok: true,
       })
       await load()
     } catch (err) {
-      setMessage({ text: err instanceof ApiError ? err.message : 'Could not reach the server.', ok: false })
+      setMessage({ text: err instanceof ApiError ? err.message : t('settings.couldNotReachServer'), ok: false })
     } finally {
       setBusy(false)
     }
+  }
+
+  const roleLabel = (role: string) => {
+    if (role === 'admin') return lang === 'pt' ? 'Administrador' : 'Admin'
+    return lang === 'pt' ? 'Funcionário' : 'Employee'
   }
 
   const input =
@@ -313,11 +322,11 @@ function TeamSection() {
 
   return (
     <Section
-      title="Team"
-      hint="Employees sign in with their own email and password. They see Service, Kitchen and their own sales only."
+      title={t('settings.team')}
+      hint={t('settings.teamHint')}
     >
       {team === null ? (
-        <p className="text-sm text-stone-400">Loading team…</p>
+        <p className="text-sm text-stone-400">{t('settings.loadingTeam')}</p>
       ) : (
         <ul className="mb-4 divide-y divide-stone-100 rounded-xl border border-stone-200">
           {team.map((m) => (
@@ -334,17 +343,17 @@ function TeamSection() {
                   m.role === 'admin' ? 'bg-brand-50 text-brand-700' : 'bg-stone-100 text-stone-500'
                 }`}
               >
-                {m.role}
+                {roleLabel(m.role)}
               </span>
               {m.role === 'employee' && (
                 <button
                   onClick={async () => {
-                    if (!window.confirm(`Remove ${m.name}'s account? Their past sales stay attributed to them.`)) return
+                    if (!window.confirm(t('settings.removeEmployeeConfirm', { name: m.name }))) return
                     try {
                       await api.deleteEmployee(m.id)
                       await load()
                     } catch (err) {
-                      setMessage({ text: err instanceof ApiError ? err.message : 'Could not remove.', ok: false })
+                      setMessage({ text: err instanceof ApiError ? err.message : t('common.error'), ok: false })
                     }
                   }}
                   className="rounded-lg p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-600"
@@ -360,23 +369,23 @@ function TeamSection() {
 
       <form onSubmit={addEmployee} className="flex flex-wrap items-end gap-2">
         <label className="min-w-36 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Name</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.employeeName')}</span>
           <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Miguel Costa" />
         </label>
         <label className="min-w-48 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Email</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.employeeEmail')}</span>
           <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="miguel@cafe.pt" />
         </label>
         <label className="min-w-40 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Password (optional)</span>
-          <input className={input} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="empty = email an invite" />
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('settings.employeePassword')}</span>
+          <input className={input} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('settings.employeePasswordHint')} />
         </label>
         <button
           type="submit"
           disabled={busy}
           className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
         >
-          <UserPlus size={15} /> Add employee
+          <UserPlus size={15} /> {t('settings.addEmployee')}
         </button>
       </form>
       {message && (
@@ -389,6 +398,7 @@ function TeamSection() {
 }
 
 function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAllData: () => void }) {
+  const { t } = useTranslation()
   const store = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
@@ -406,7 +416,7 @@ function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAl
       plan: store.plan,
       trialEndsAt: store.trialEndsAt,
     })
-    setMessage({ text: 'Backup downloaded. Keep it somewhere safe (cloud drive, USB stick).', ok: true })
+    setMessage({ text: t('settings.backupDownloaded'), ok: true })
   }
 
   const handleImportFile = async (file: File) => {
@@ -419,28 +429,32 @@ function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAl
     const when = new Date(result.data.sales[result.data.sales.length - 1]?.at ?? 0)
     if (
       window.confirm(
-        `Restore this backup? It contains ${result.data.sales.length} sales (latest: ${when.toLocaleDateString()}), ${result.data.products.length} products.\n\nThis REPLACES everything currently in the app.`,
+        t('settings.restoreBackupConfirm', {
+          salesCount: result.data.sales.length,
+          lastDate: when.toLocaleDateString(),
+          productsCount: result.data.products.length,
+        })
       )
     ) {
       store.importData(result.data)
-      setMessage({ text: 'Backup restored.', ok: true })
+      setMessage({ text: t('settings.backupRestored'), ok: true })
     }
   }
 
   return (
-    <Section title="Data" hint="Everything is stored locally on this machine. Export a backup regularly.">
+    <Section title={t('settings.data')} hint={t('settings.dataHint')}>
       <div className="flex flex-wrap gap-2">
         <button
           onClick={handleExport}
           className="flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
         >
-          <Download size={15} /> Export backup
+          <Download size={15} /> {t('settings.exportBackup')}
         </button>
         <button
           onClick={() => fileRef.current?.click()}
           className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
         >
-          <Upload size={15} /> Import backup
+          <Upload size={15} /> {t('settings.importBackup')}
         </button>
         <input
           ref={fileRef}
@@ -455,19 +469,19 @@ function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAl
         />
         <button
           onClick={() => {
-            if (window.confirm('Replace everything with the demo data (Café Aurora)?')) seedDemo()
+            if (window.confirm(t('settings.loadDemoConfirm'))) seedDemo()
           }}
           className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
         >
-          Load demo data
+          {t('settings.loadDemo')}
         </button>
         <button
           onClick={() => {
-            if (window.confirm('Delete ALL data — sales, menu, tables, everything? This cannot be undone.')) clearAllData()
+            if (window.confirm(t('settings.clearDataConfirm'))) clearAllData()
           }}
           className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
         >
-          Clear all data
+          {t('settings.clearData')}
         </button>
       </div>
       {message && (
@@ -522,17 +536,18 @@ function HourSelect({
 }
 
 function AddTableButton({ onAdd, nextName }: { onAdd: (name: string, seats: number) => void; nextName: string }) {
+  const { t } = useTranslation()
   return (
     <button
       onClick={() => {
-        const name = window.prompt('Table name', nextName)
+        const name = window.prompt(t('settings.tableNameLabel'), nextName)
         if (!name?.trim()) return
-        const seats = Number(window.prompt('Seats', '4') ?? '4')
+        const seats = Number(window.prompt(t('settings.seatsLabel'), '4') ?? '4')
         onAdd(name.trim(), Number.isFinite(seats) && seats > 0 ? seats : 4)
       }}
       className="flex items-center gap-1 rounded-lg border border-dashed border-stone-300 px-2.5 py-1 text-sm text-stone-500 hover:border-stone-400 hover:text-stone-700"
     >
-      <Plus size={13} /> Table
+      <Plus size={13} /> {t('settings.addTable')}
     </button>
   )
 }

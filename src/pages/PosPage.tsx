@@ -9,15 +9,24 @@ import { Modal } from '../components/ui/Modal'
 import { useAuth } from '../auth/AuthContext'
 import { api, type TeamMember } from '../lib/api'
 import { isLocalMode } from '../lib/mode'
+import { useTranslation } from '../lib/i18n'
 
-const STATUS_STYLE: Record<OrderStatus, { label: string; tile: string; chip: string }> = {
-  open: { label: 'Taking order', tile: 'border-amber-400 bg-amber-50', chip: 'bg-amber-100 text-amber-800' },
-  sent: { label: 'In kitchen', tile: 'border-blue-400 bg-blue-50', chip: 'bg-blue-100 text-blue-800' },
-  ready: { label: 'Ready to serve', tile: 'border-green-500 bg-green-50', chip: 'bg-green-100 text-green-800' },
-  served: { label: 'Awaiting bill', tile: 'border-violet-400 bg-violet-50', chip: 'bg-violet-100 text-violet-800' },
+const STATUS_STYLE: Record<OrderStatus, { tile: string; chip: string }> = {
+  open: { tile: 'border-amber-400 bg-amber-50', chip: 'bg-amber-100 text-amber-800' },
+  sent: { tile: 'border-blue-400 bg-blue-50', chip: 'bg-blue-100 text-blue-800' },
+  ready: { tile: 'border-green-500 bg-green-50', chip: 'bg-green-100 text-green-800' },
+  served: { tile: 'border-violet-400 bg-violet-50', chip: 'bg-violet-100 text-violet-800' },
+}
+
+const STATUS_KEY: Record<OrderStatus, string> = {
+  open: 'pos.takingOrder',
+  sent: 'pos.inKitchen',
+  ready: 'pos.readyToServe',
+  served: 'pos.awaitingBill',
 }
 
 export function PosPage() {
+  const { t } = useTranslation()
   const { rooms, tables, orders, settings, openOrder } = useStore()
   const { user } = useAuth()
   const [roomId, setRoomId] = useState<string | null>(null)
@@ -39,14 +48,14 @@ export function PosPage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-stone-900">Service</h1>
-          <p className="text-sm text-stone-500">Tap a table to take an order</p>
+          <h1 className="text-xl font-bold text-stone-900">{t('pos.title')}</h1>
+          <p className="text-sm text-stone-500">{t('pos.subtitle')}</p>
         </div>
         <button
           onClick={() => setActiveOrderId(openOrder(null, me))}
           className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
         >
-          <ShoppingBag size={16} /> Counter sale
+          <ShoppingBag size={16} /> {t('pos.counterSale')}
         </button>
       </header>
 
@@ -70,7 +79,7 @@ export function PosPage() {
 
       {roomTables.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">
-          No tables in this room yet — add them in <span className="font-medium">Settings → Rooms &amp; tables</span>.
+          {t('pos.noTables')}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -82,7 +91,7 @@ export function PosPage() {
 
       {counterOrders.length > 0 && (
         <div className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold text-stone-700">Open counter sales</h2>
+          <h2 className="mb-2 text-sm font-semibold text-stone-700">{t('pos.openCounterSales')}</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {counterOrders.map((o) => {
               const st = STATUS_STYLE[o.status]
@@ -94,10 +103,10 @@ export function PosPage() {
                   className={`rounded-2xl border-2 p-4 text-left shadow-card transition-transform active:scale-[0.98] ${st.tile}`}
                 >
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-lg font-bold text-stone-900">Counter</span>
+                    <span className="text-lg font-bold text-stone-900">{t('common.counter')}</span>
                     <ShoppingBag size={16} className="text-stone-400" />
                   </div>
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>{st.label}</span>
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>{t(STATUS_KEY[o.status])}</span>
                   <div className="mt-1.5 text-xs text-stone-500">{fmtMoney(total, settings.currency)}</div>
                 </button>
               )
@@ -120,6 +129,7 @@ function TableTile({
   currency: string
   onOpen: () => void
 }) {
+  const { t } = useTranslation()
   const st = order ? STATUS_STYLE[order.status] : null
   const total = order ? order.items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0) : 0
   return (
@@ -135,16 +145,16 @@ function TableTile({
           <Users size={13} /> {table.seats}
         </span>
       </div>
-      {st ? (
+      {order && st ? (
         <>
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>{st.label}</span>
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>{t(STATUS_KEY[order.status])}</span>
           <div className="mt-1.5 text-xs text-stone-500">
-            {order!.items.length === 0 ? 'No items yet' : fmtMoney(total, currency)}
+            {order.items.length === 0 ? t('pos.noItems') : fmtMoney(total, currency)}
           </div>
         </>
       ) : (
         <span className="inline-block rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500">
-          Free
+          {t('common.free')}
         </span>
       )}
     </button>
@@ -154,6 +164,7 @@ function TableTile({
 // ---------------------------------------------------------------------------
 
 function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
+  const { t } = useTranslation()
   const {
     categories,
     products,
@@ -185,7 +196,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
     const buffer = new ScanBuffer((code) => {
       const res = resolveScan(code, products)
       if (!res) {
-        flashScan(`Unknown barcode: ${code}`, false)
+        flashScan(t('pos.unknownBarcode', { code }), false)
         return
       }
       if (res.needsWeight) {
@@ -196,7 +207,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
       flashScan(
         res.product.unit === 'kg'
           ? `${res.product.name} — ${fmtQty(res.qty, 'kg')}`
-          : `${res.product.name} added`,
+          : t('pos.addedProduct', { name: res.product.name }),
         true,
       )
     })
@@ -207,10 +218,10 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [products, order.id, addItemToOrder])
+  }, [products, order.id, addItemToOrder, t])
 
   const table = tables.find((t) => t.id === order.tableId)
-  const title = table ? `Table ${table.name}` : 'Counter sale'
+  const title = table ? t('bill.table', { name: table.name }) : t('pos.counterSale')
   const st = STATUS_STYLE[order.status]
   const total = order.items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0)
   const money = (v: number) => fmtMoney(v, settings.currency)
@@ -229,12 +240,12 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
             onClick={onBack}
             className="flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100"
           >
-            <ArrowLeft size={16} /> Tables
+            <ArrowLeft size={16} /> {t('common.table') + 's'}
           </button>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold text-stone-900">{title}</h1>
           </div>
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${st.chip}`}>{st.label}</span>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${st.chip}`}>{t(STATUS_KEY[order.status])}</span>
           {!isLocalMode && <ServedByChip order={order} onPick={(emp) => setOrderEmployee(order.id, emp)} />}
           {scanMsg && (
             <span
@@ -255,7 +266,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
               catId === null ? 'bg-stone-900 text-white' : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
             }`}
           >
-            All
+            {t('pos.categoryAll')}
           </button>
           {categories.map((c) => (
             <button
@@ -272,7 +283,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
 
         {activeProducts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center text-sm text-stone-500">
-            No products here yet — add them in the <span className="font-medium">Menu</span> page.
+            {t('pos.noProducts')}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 pb-4 sm:grid-cols-3 xl:grid-cols-4">
@@ -300,11 +311,11 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
       {/* Ticket */}
       <aside className="flex w-full shrink-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-card lg:w-96">
         <div className="border-b border-stone-100 px-4 py-3">
-          <h2 className="font-semibold text-stone-900">Ticket</h2>
+          <h2 className="font-semibold text-stone-900">{t('pos.ticket')}</h2>
         </div>
         <div className="min-h-[8rem] flex-1 overflow-auto px-4">
           {order.items.length === 0 ? (
-            <p className="py-10 text-center text-sm text-stone-400">Tap products to add them</p>
+            <p className="py-10 text-center text-sm text-stone-400">{t('pos.tapProducts')}</p>
           ) : (
             <ul className="divide-y divide-stone-100">
               {order.items.map((i) => (
@@ -361,7 +372,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
                     <input
                       value={i.note ?? ''}
                       onChange={(e) => setItemNote(order.id, i.id, e.target.value)}
-                      placeholder="Note for the kitchen (e.g. no sugar)"
+                      placeholder={t('pos.notePlaceholder')}
                       className="mt-1.5 w-full rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
                     />
                   )}
@@ -372,7 +383,7 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
         </div>
         <div className="space-y-2.5 border-t border-stone-100 p-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-stone-500">Total</span>
+            <span className="text-stone-500">{t('pos.total')}</span>
             <span className="text-xl font-bold text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {money(total)}
             </span>
@@ -383,26 +394,26 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
               disabled={order.items.length === 0}
               className="flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <ChefHat size={16} /> {order.status === 'open' ? 'Send to kitchen' : 'Update kitchen'}
+              <ChefHat size={16} /> {order.status === 'open' ? t('pos.sendKitchen') : t('pos.updateKitchen')}
             </button>
             <button
               onClick={() => setBillOpen(true)}
               disabled={order.items.length === 0}
               className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <ReceiptText size={16} /> Charge
+              <ReceiptText size={16} /> {t('pos.charge')}
             </button>
           </div>
           <button
             onClick={() => {
-              if (order.items.length === 0 || window.confirm('Cancel this order? Its items will be discarded.')) {
+              if (order.items.length === 0 || window.confirm(t('pos.cancelConfirm'))) {
                 cancelOrder(order.id)
                 onBack()
               }
             }}
             className="w-full rounded-xl px-3 py-2 text-xs font-medium text-stone-400 hover:bg-red-50 hover:text-red-600"
           >
-            Cancel order
+            {t('pos.cancelOrder')}
           </button>
         </div>
       </aside>
@@ -430,6 +441,7 @@ function ServedByChip({
   order: Order
   onPick: (emp: { id: string; name: string } | null) => void
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [team, setTeam] = useState<TeamMember[] | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -459,14 +471,14 @@ function ServedByChip({
         aria-expanded={open}
       >
         <Users size={12} className="text-stone-400" />
-        {order.employeeName ?? 'Served by…'}
+        {order.employeeName ?? t('pos.servedByLabel')}
       </button>
       {open && (
         <div className="absolute left-0 top-8 z-30 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
           {team === null ? (
-            <p className="px-2 py-1.5 text-xs text-stone-400">Loading team…</p>
+            <p className="px-2 py-1.5 text-xs text-stone-400">{t('pos.loadingTeam')}</p>
           ) : team.length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-stone-400">No team members yet</p>
+            <p className="px-2 py-1.5 text-xs text-stone-400">{t('pos.noTeamMembers')}</p>
           ) : (
             team.map((m) => (
               <button
@@ -500,18 +512,19 @@ function WeightModal({
   onClose: () => void
   onConfirm: (kg: number) => void
 }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const kg = Number(value.replace(',', '.'))
   const valid = Number.isFinite(kg) && kg > 0 && kg < 1000
 
   return (
-    <Modal title={`Weigh: ${product.name}`} onClose={onClose}>
+    <Modal title={t('pos.weighProduct', { name: product.name })} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) {
-            setError('Enter the weight in kilograms, e.g. 0.485')
+            setError(t('pos.weightHint'))
             return
           }
           onConfirm(Math.round(kg * 1000) / 1000)
@@ -519,12 +532,12 @@ function WeightModal({
         className="space-y-3"
       >
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-stone-700">Weight (kg)</span>
+          <span className="mb-1 block text-sm font-medium text-stone-700">{t('pos.weightLabel')}</span>
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
             inputMode="decimal"
-            placeholder="0.485"
+            placeholder={t('pos.weightPlaceholder')}
             autoFocus
             className="w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold focus:border-brand-500 focus:outline-none"
             style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -545,13 +558,13 @@ function WeightModal({
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
           >
-            Add to ticket
+            {t('pos.addToTicket')}
           </button>
         </div>
       </form>

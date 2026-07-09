@@ -17,7 +17,7 @@ import cookieParser from 'cookie-parser'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import Database from 'better-sqlite3'
-import { sendMail } from './mailer.mjs'
+import { sendMail, escapeHtml } from './mailer.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -291,7 +291,7 @@ app.post('/api/auth/forgot', (req, res) => {
       to: user.email,
       subject: 'Reset your password — Veronis',
       heading: 'Reset your password',
-      bodyHtml: `<p style="color:#57534e;line-height:1.6">Someone (hopefully you) asked to reset the password for ${user.email}. The link works once and expires in 1 hour.</p>`,
+      bodyHtml: `<p style="color:#57534e;line-height:1.6">Someone (hopefully you) asked to reset the password for ${escapeHtml(user.email)}. The link works once and expires in 1 hour.</p>`,
       actionUrl: `${APP_URL}/#/reset?token=${token}`,
       actionLabel: 'Choose a new password',
     }).catch((err) => console.error('[mail] reset failed:', err.message))
@@ -378,7 +378,7 @@ app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
       to: cleanEmail,
       subject: `You're invited to ${biz?.name ?? 'Veronis'}`,
       heading: `${req.user.name} added you to ${biz?.name ?? 'the team'}`,
-      bodyHtml: `<p style="color:#57534e;line-height:1.6">Choose a password and you're in. You'll use ${cleanEmail} to sign in. The link works once and expires in 48 hours.</p>`,
+      bodyHtml: `<p style="color:#57534e;line-height:1.6">Choose a password and you're in. You'll use ${escapeHtml(cleanEmail)} to sign in. The link works once and expires in 48 hours.</p>`,
       actionUrl: `${APP_URL}/#/reset?token=${token}`,
       actionLabel: 'Choose my password',
     }).catch((err) => console.error('[mail] invite failed:', err.message))

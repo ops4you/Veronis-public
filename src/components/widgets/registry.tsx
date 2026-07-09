@@ -38,7 +38,7 @@ import {
 } from '../../lib/analytics'
 import { DAY_NAMES, fmtMoney, fmtMoneyCompact, fmtNumber, fmtTime, fmtDate } from '../../lib/format'
 import { accent } from '../../lib/palette'
-import { WIDGET_MIN_PLAN, effectivePlan, planAllows, planName } from '../../lib/plans'
+import { WIDGET_MIN_PLAN, effectivePlan, planAllows } from '../../lib/plans'
 import { lineText } from '../../lib/barcode'
 import { useStore } from '../../store/useStore'
 import { Lock } from 'lucide-react'
@@ -48,6 +48,7 @@ import { BarChart } from '../charts/BarChart'
 import { HBarChart } from '../charts/HBarChart'
 import { Donut } from '../charts/Donut'
 import { Heatmap } from '../charts/Heatmap'
+import { useTranslation, i18n } from '../../lib/i18n'
 
 export interface WidgetMeta {
   title: string
@@ -72,14 +73,22 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
 }
 
 export function widgetSubtitle(type: WidgetType, period: Period): string {
-  if (type === 'deadHours') return 'Last 4 weeks · open hours'
-  if (type === 'recentSales') return 'Most recent first'
+  if (type === 'deadHours') return i18n.t('widgets.subtitle.deadHours')
+  if (type === 'recentSales') return i18n.t('widgets.subtitle.recentSales')
   return periodLabel(period)
 }
 
 export function WidgetBody({ widget, period }: { widget: Widget; period: Period }) {
+  const { t, lang } = useTranslation()
   const { sales, expenses, products, categories, settings, plan, trialEndsAt } = useStore()
   const a = accent(widget.accent)
+
+  const getPlanName = (id: string) => {
+    if (id === 'basic') return lang === 'pt' ? 'Básico' : 'Basic'
+    if (id === 'standard') return 'Standard'
+    if (id === 'premium') return 'Premium'
+    return id
+  }
 
   const required = WIDGET_MIN_PLAN[widget.type]
   if (!planAllows(effectivePlan(plan, trialEndsAt), required)) {
@@ -87,10 +96,10 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
         <Lock size={18} className="text-stone-300" />
         <p className="text-sm text-stone-500">
-          Included in the <span className="font-semibold">{planName(required)}</span> plan
+          {t('widgets.locked', { plan: getPlanName(required) })}
         </p>
         <Link to="/plans" className="text-sm font-medium text-brand-600 hover:underline">
-          See plans
+          {t('widgets.seePlans')}
         </Link>
       </div>
     )
@@ -202,7 +211,7 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
           data={pts.map((p, i) => ({
             label: p.label,
             value: Math.round(p.total * 100) / 100,
-            sub: `${cnts[i]?.total ?? 0} orders`,
+            sub: t('widgets.ordersCount', { count: cnts[i]?.total ?? 0 }),
           }))}
           color={a.color}
           formatValue={money}
@@ -224,7 +233,7 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
       const byEmployee = salesByEmployee(inPeriod).slice(0, 6)
       return (
         <HBarChart
-          data={byEmployee.map((e) => ({ name: e.name, value: e.revenue, sub: `· ${e.orders} orders` }))}
+          data={byEmployee.map((e) => ({ name: e.name, value: e.revenue, sub: `· ${t('widgets.ordersCount', { count: e.orders })}` }))}
           color={a.color}
           formatValue={moneyC}
         />
@@ -240,7 +249,7 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
       return (
         <div className="flex h-full flex-col justify-center gap-3">
           {total === 0 ? (
-            <p className="text-center text-sm text-stone-400">No sales in this period yet</p>
+            <p className="text-center text-sm text-stone-400">{t('widgets.noSalesPeriod')}</p>
           ) : (
             <>
               <div className="flex h-5 w-full gap-[2px] overflow-hidden rounded-md">
@@ -250,13 +259,13 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-sm" style={{ background: a.color }} />
-                  <span className="text-stone-600">Cash</span>
+                  <span className="text-stone-600">{t('widgets.cash')}</span>
                   <span className="ml-auto font-medium text-stone-900">{money(mix.cash)}</span>
                   <span className="w-9 text-right text-stone-400">{cashPct.toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-sm border border-stone-300" style={{ background: a.tint }} />
-                  <span className="text-stone-600">Card</span>
+                  <span className="text-stone-600">{t('widgets.card')}</span>
                   <span className="ml-auto font-medium text-stone-900">{money(mix.card)}</span>
                   <span className="w-9 text-right text-stone-400">{(100 - cashPct).toFixed(0)}%</span>
                 </div>
@@ -274,7 +283,12 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
       const strongest = byDay[byDay.length - 1]
       const weakDayNote =
         weakest && strongest && strongest.avg > 0 && weakest.avg < strongest.avg * 0.4
-          ? `${DAY_NAMES[weakest.day]}s average ${fmtMoneyCompact(weakest.avg, cur)}/day — your weakest day (best: ${DAY_NAMES[strongest.day]}s at ${fmtMoneyCompact(strongest.avg, cur)}).`
+          ? t('widgets.weakDayNote', {
+              weakDay: DAY_NAMES[weakest.day],
+              weakAvg: fmtMoneyCompact(weakest.avg, cur),
+              strongDay: DAY_NAMES[strongest.day],
+              strongAvg: fmtMoneyCompact(strongest.avg, cur),
+            })
           : null
       return (
         <div className="flex h-full flex-col gap-3">
@@ -285,8 +299,8 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
             <div className="rounded-xl px-3 py-2.5 text-xs leading-relaxed text-stone-700" style={{ background: a.tint }}>
               {phrases.length > 0 && (
                 <p>
-                  <span className="font-semibold">Usually empty:</span> {phrases.join(' · ')} — consider a lighter
-                  shift or opening later.
+                  <span className="font-semibold">{t('widgets.usuallyEmpty')}</span> {phrases.join(' · ')} —{' '}
+                  {t('widgets.considerLighter')}
                 </p>
               )}
               {weakDayNote && <p className={phrases.length > 0 ? 'mt-1' : ''}>{weakDayNote}</p>}
@@ -298,7 +312,7 @@ export function WidgetBody({ widget, period }: { widget: Widget; period: Period 
     case 'recentSales': {
       const recent = [...sales].sort((x, y) => y.at - x.at).slice(0, 7)
       if (recent.length === 0)
-        return <p className="flex h-full items-center justify-center text-sm text-stone-400">No sales yet</p>
+        return <p className="flex h-full items-center justify-center text-sm text-stone-400">{t('widgets.noSalesYet')}</p>
       return (
         <ul className="divide-y divide-stone-100">
           {recent.map((s) => (

@@ -7,15 +7,26 @@ import { periodRange, salesIn, expensesIn, sumSales, sumExpenses } from '../lib/
 import { fmtDateLong, fmtMoney, fmtTime, startOfDay } from '../lib/format'
 import { effectivePlan, historyDays } from '../lib/plans'
 import { lineText } from '../lib/barcode'
+import { useTranslation } from '../lib/i18n'
 
-const PERIODS: { key: Period; label: string; days: number }[] = [
-  { key: 'today', label: 'Today', days: 1 },
-  { key: '7d', label: '7 days', days: 7 },
-  { key: '30d', label: '30 days', days: 30 },
-  { key: '90d', label: '90 days', days: 90 },
+const PERIODS: { key: Period; daysKey: 'today' | 'days7' | 'days30' | 'days90'; days: number }[] = [
+  { key: 'today', daysKey: 'today', days: 1 },
+  { key: '7d', daysKey: 'days7', days: 7 },
+  { key: '30d', daysKey: 'days30', days: 30 },
+  { key: '90d', daysKey: 'days90', days: 90 },
 ]
 
+const EXPENSE_CATEGORIES = ['Supplies', 'Staff', 'Rent', 'Utilities', 'Other']
+const CATEGORY_KEYS: Record<string, string> = {
+  Supplies: 'history.expenseCategorySupplies',
+  Staff: 'history.expenseCategoryStaff',
+  Rent: 'history.expenseCategoryRent',
+  Utilities: 'history.expenseCategoryUtilities',
+  Other: 'history.expenseCategoryOther',
+}
+
 export function HistoryPage() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<'sales' | 'expenses'>('sales')
   const [period, setPeriod] = useState<Period>('7d')
   const { plan, trialEndsAt } = useStore()
@@ -25,8 +36,8 @@ export function HistoryPage() {
     <div className="mx-auto max-w-4xl">
       <header className="mb-5 flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-stone-900">History</h1>
-          <p className="text-sm text-stone-500">Every sale and expense, day by day</p>
+          <h1 className="text-xl font-bold text-stone-900">{t('history.title')}</h1>
+          <p className="text-sm text-stone-500">{t('history.subtitle')}</p>
         </div>
         <div className="flex rounded-xl border border-stone-200 bg-white p-0.5">
           {PERIODS.map((p) => {
@@ -36,10 +47,10 @@ export function HistoryPage() {
                 <Link
                   key={p.key}
                   to="/plans"
-                  title="Longer history is included in the Standard plan"
+                  title={t('history.lockedHint')}
                   className="flex items-center gap-1 rounded-[10px] px-3 py-1.5 text-sm font-medium text-stone-300 hover:text-stone-500"
                 >
-                  <Lock size={12} /> {p.label}
+                  <Lock size={12} /> {t(`common.${p.daysKey}`)}
                 </Link>
               )
             return (
@@ -50,7 +61,7 @@ export function HistoryPage() {
                   period === p.key ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
                 }`}
               >
-                {p.label}
+                {t(`common.${p.daysKey}`)}
               </button>
             )
           })}
@@ -64,7 +75,7 @@ export function HistoryPage() {
             tab === 'sales' ? 'bg-brand-600 text-white' : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
           }`}
         >
-          Sales
+          {t('history.sales')}
         </button>
         <button
           onClick={() => setTab('expenses')}
@@ -72,7 +83,7 @@ export function HistoryPage() {
             tab === 'expenses' ? 'bg-brand-600 text-white' : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
           }`}
         >
-          Expenses
+          {t('history.expenses')}
         </button>
       </div>
 
@@ -82,6 +93,7 @@ export function HistoryPage() {
 }
 
 function SalesLedger({ period }: { period: Period }) {
+  const { t } = useTranslation()
   const { sales, settings } = useStore()
   const money = (v: number) => fmtMoney(v, settings.currency)
   const r = periodRange(period)
@@ -101,12 +113,12 @@ function SalesLedger({ period }: { period: Period }) {
   const total = sumSales(salesIn(sales, r))
 
   if (byDay.length === 0)
-    return <p className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">No sales in this period.</p>
+    return <p className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">{t('history.noSales')}</p>
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm shadow-card">
-        <span className="text-stone-500">Period total</span>
+        <span className="text-stone-500">{t('history.periodTotal')}</span>
         <span className="float-right font-bold text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>{money(total)}</span>
       </div>
       {byDay.slice(0, 30).map(([day, list]) => (
@@ -114,7 +126,7 @@ function SalesLedger({ period }: { period: Period }) {
           <h2 className="mb-1.5 flex items-baseline justify-between px-1 text-sm">
             <span className="font-semibold text-stone-700">{fmtDateLong(day)}</span>
             <span className="text-stone-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {list.length} sales · {money(sumSales(list))}
+              {t('history.salesCount', { count: list.length, total: money(sumSales(list)) })}
             </span>
           </h2>
           <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-card">
@@ -125,7 +137,7 @@ function SalesLedger({ period }: { period: Period }) {
                   <span className="min-w-0 flex-1 truncate text-stone-600">
                     {s.lines.map((l) => lineText(l.qty, l.unit, l.name)).join(', ')}
                   </span>
-                  <span className="shrink-0 text-stone-300" title={s.method === 'cash' ? 'Cash' : 'Card'}>
+                  <span className="shrink-0 text-stone-300" title={s.method === 'cash' ? t('bill.cash') : t('bill.card')}>
                     {s.method === 'cash' ? <Banknote size={15} /> : <CreditCard size={15} />}
                   </span>
                   <span className="w-20 shrink-0 text-right font-medium text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -142,6 +154,7 @@ function SalesLedger({ period }: { period: Period }) {
 }
 
 function ExpenseLedger({ period }: { period: Period }) {
+  const { t } = useTranslation()
   const { expenses, settings, addExpense, deleteExpense } = useStore()
   const money = (v: number) => fmtMoney(v, settings.currency)
   const r = periodRange(period)
@@ -164,50 +177,50 @@ function ExpenseLedger({ period }: { period: Period }) {
         className="flex flex-wrap items-end gap-2 rounded-2xl border border-stone-200 bg-white p-4 shadow-card"
       >
         <label className="min-w-40 flex-1">
-          <span className="mb-1 block text-xs font-medium text-stone-500">What was it?</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('history.whatWasIt')}</span>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Coffee beans"
+            placeholder={t('history.whatWasItPlaceholder')}
             className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           />
         </label>
         <label className="w-28">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Amount</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('history.amount')}</span>
           <input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
-            placeholder="45.00"
+            placeholder={t('history.amountPlaceholder')}
             className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           />
         </label>
         <label className="w-36">
-          <span className="mb-1 block text-xs font-medium text-stone-500">Category</span>
+          <span className="mb-1 block text-xs font-medium text-stone-500">{t('history.expenseCategory')}</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           >
-            {['Supplies', 'Staff', 'Rent', 'Utilities', 'Other'].map((c) => (
-              <option key={c}>{c}</option>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{t(CATEGORY_KEYS[c])}</option>
             ))}
           </select>
         </label>
         <button type="submit" className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700">
-          <Plus size={15} /> Add
+          <Plus size={15} /> {t('common.add')}
         </button>
       </form>
 
       <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm shadow-card">
-        <span className="text-stone-500">Period total</span>
+        <span className="text-stone-500">{t('history.periodTotal')}</span>
         <span className="float-right font-bold text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {money(sumExpenses(inPeriod))}
         </span>
       </div>
 
       {inPeriod.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">No expenses in this period.</p>
+        <p className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">{t('history.noExpenses')}</p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-card">
           <ul className="divide-y divide-stone-100">
@@ -215,13 +228,13 @@ function ExpenseLedger({ period }: { period: Period }) {
               <li key={e.id} className="flex items-center gap-3 px-4 py-2 text-sm">
                 <span className="w-20 shrink-0 text-stone-400">{fmtDateLong(e.at)}</span>
                 <span className="min-w-0 flex-1 truncate font-medium text-stone-800">{e.label}</span>
-                <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-500">{e.category}</span>
+                <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-500">{t(CATEGORY_KEYS[e.category] ?? 'history.expenseCategoryOther')}</span>
                 <span className="w-20 shrink-0 text-right font-medium text-stone-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {money(e.amount)}
                 </span>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Delete expense "${e.label}"?`)) deleteExpense(e.id)
+                    if (window.confirm(t('history.deleteExpenseConfirm', { name: e.label }))) deleteExpense(e.id)
                   }}
                   className="rounded-lg p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-600"
                   aria-label={`Delete ${e.label}`}
