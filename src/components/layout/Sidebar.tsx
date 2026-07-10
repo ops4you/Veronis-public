@@ -12,24 +12,25 @@ import {
 import { useStore } from '../../store/useStore'
 import { effectivePlan, planName, trialDaysLeft } from '../../lib/plans'
 import { useAuth } from '../../auth/AuthContext'
-
-const LINKS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, adminOnly: false },
-  { to: '/service', label: 'Service', icon: HandPlatter, adminOnly: false },
-  { to: '/kitchen', label: 'Kitchen', icon: ChefHat, adminOnly: false },
-  { to: '/menu', label: 'Menu', icon: BookOpen, adminOnly: true },
-  { to: '/history', label: 'History', icon: History, adminOnly: true },
-  { to: '/plans', label: 'Plans', icon: Crown, adminOnly: true },
-  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
-]
+import { useTranslation } from '../../lib/i18n'
 
 export function Sidebar() {
+  const { t, lang, setLanguage } = useTranslation()
   const kitchenCount = useStore((s) => s.orders.filter((o) => o.status === 'sent' || o.status === 'ready').length)
   const plan = useStore((s) => s.plan)
   const trialEndsAt = useStore((s) => s.trialEndsAt)
   const daysLeft = trialDaysLeft(trialEndsAt)
   const { user, isAdmin, logout } = useAuth()
-  const links = LINKS.filter((l) => isAdmin || !l.adminOnly)
+
+  const links = [
+    { to: '/', label: t('sidebar.dashboard'), icon: LayoutDashboard, end: true, adminOnly: false },
+    { to: '/service', label: t('sidebar.service'), icon: HandPlatter, adminOnly: false },
+    { to: '/kitchen', label: t('sidebar.kitchen'), icon: ChefHat, adminOnly: false },
+    { to: '/menu', label: t('sidebar.menu'), icon: BookOpen, adminOnly: true },
+    { to: '/history', label: t('sidebar.history'), icon: History, adminOnly: true },
+    { to: '/plans', label: t('sidebar.plans'), icon: Crown, adminOnly: true },
+    { to: '/settings', label: t('sidebar.settings'), icon: Settings, adminOnly: true },
+  ].filter((l) => isAdmin || !l.adminOnly)
 
   return (
     <nav
@@ -56,10 +57,10 @@ export function Sidebar() {
             >
               <Icon size={19} className="shrink-0" />
               <span className="hidden lg:block">{label}</span>
-              {label === 'Kitchen' && kitchenCount > 0 && (
+              {label === t('sidebar.kitchen') && kitchenCount > 0 && (
                 <span
                   className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-bold text-white lg:static lg:ml-auto"
-                  aria-label={`${kitchenCount} open kitchen tickets`}
+                  aria-label={t('sidebar.ticketsCount', { count: kitchenCount })}
                 >
                   {kitchenCount}
                 </span>
@@ -69,6 +70,14 @@ export function Sidebar() {
         ))}
       </ul>
       <div className="hidden px-3 pb-4 lg:block">
+        <button
+          onClick={() => setLanguage(lang === 'pt' ? 'en' : 'pt')}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-50 w-full mb-2"
+        >
+          <span>🌐</span>
+          <span>{lang === 'pt' ? 'Português (PT)' : 'English (EN)'}</span>
+        </button>
+
         {isAdmin && (
           <NavLink
             to="/plans"
@@ -76,13 +85,19 @@ export function Sidebar() {
           >
             {daysLeft > 0 ? (
               <>
-                <span className="block text-xs font-semibold text-violet-700">Premium trial · {daysLeft}d left</span>
-                <span className="block text-[11px] text-stone-500">then {planName(effectivePlan(plan, null))} — see plans</span>
+                <span className="block text-xs font-semibold text-violet-700">
+                  {t('sidebar.trialLeft', { days: daysLeft })}
+                </span>
+                <span className="block text-[11px] text-stone-500">
+                  {t('sidebar.trialEnd', { plan: planName(effectivePlan(plan, null)) })}
+                </span>
               </>
             ) : (
               <>
-                <span className="block text-xs font-semibold text-stone-700">{planName(plan)} plan</span>
-                <span className="block text-[11px] text-stone-500">upgrade or change</span>
+                <span className="block text-xs font-semibold text-stone-700">
+                  {t('sidebar.currentPlan', { plan: planName(plan) })}
+                </span>
+                <span className="block text-[11px] text-stone-500">{t('sidebar.upgradeOrChange')}</span>
               </>
             )}
           </NavLink>
@@ -99,14 +114,14 @@ export function Sidebar() {
             <button
               onClick={() => void logout()}
               className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label={t('sidebar.signOut')}
+              title={t('sidebar.signOut')}
             >
               <LogOut size={14} />
             </button>
           </div>
         )}
-        <p className="mt-3 px-1 text-[11px] text-stone-400">Veronis · run your place, simply</p>
+        <p className="mt-3 px-1 text-[11px] text-stone-400">{t('sidebar.tagline')}</p>
       </div>
     </nav>
   )

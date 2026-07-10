@@ -4,6 +4,7 @@ import type { Order } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtElapsed } from '../lib/format'
 import { lineText } from '../lib/barcode'
+import { useTranslation } from '../lib/i18n'
 
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(Date.now())
@@ -15,6 +16,7 @@ function useNow(intervalMs = 1000): number {
 }
 
 export function KitchenPage() {
+  const { t } = useTranslation()
   const { orders, tables, markReady, markServed } = useStore()
   const now = useNow()
 
@@ -22,28 +24,28 @@ export function KitchenPage() {
   const ready = orders.filter((o) => o.status === 'ready').sort((a, b) => (a.readyAt ?? 0) - (b.readyAt ?? 0))
 
   const tableName = (o: Order) =>
-    o.tableId === null ? 'Counter' : `Table ${tables.find((t) => t.id === o.tableId)?.name ?? '?'}`
+    o.tableId === null ? t('bill.counter') : t('bill.table', { name: tables.find((t) => t.id === o.tableId)?.name ?? '?' })
 
   return (
     <div className="mx-auto max-w-6xl">
       <header className="mb-5">
-        <h1 className="text-xl font-bold text-stone-900">Kitchen</h1>
+        <h1 className="text-xl font-bold text-stone-900">{t('kitchen.title')}</h1>
         <p className="text-sm text-stone-500">
-          Tickets appear here the moment service sends them — open this page on the kitchen screen
+          {t('kitchen.subtitle')}
         </p>
       </header>
 
       {sent.length === 0 && ready.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-16 text-center">
           <ChefHat className="mx-auto mb-3 text-stone-300" size={40} />
-          <p className="font-medium text-stone-600">All quiet in the kitchen</p>
-          <p className="text-sm text-stone-400">New tickets will show up here automatically.</p>
+          <p className="font-medium text-stone-600">{t('kitchen.allQuiet')}</p>
+          <p className="text-sm text-stone-400">{t('kitchen.newTickets')}</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-          <section aria-label="In preparation">
+          <section aria-label={t('kitchen.inPreparation')}>
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-700">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> In preparation ({sent.length})
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> {t('kitchen.inPreparation')} ({sent.length})
             </h2>
             <div className="space-y-3">
               {sent.map((o) => (
@@ -52,17 +54,17 @@ export function KitchenPage() {
                   title={tableName(o)}
                   order={o}
                   elapsed={fmtElapsed(now - (o.sentAt ?? o.createdAt))}
-                  actionLabel="Mark ready"
+                  actionLabel={t('kitchen.markReady')}
                   actionIcon={<Check size={15} />}
                   onAction={() => markReady(o.id)}
                 />
               ))}
-              {sent.length === 0 && <p className="rounded-xl border border-dashed border-stone-200 p-6 text-center text-sm text-stone-400">Nothing in preparation</p>}
+              {sent.length === 0 && <p className="rounded-xl border border-dashed border-stone-200 p-6 text-center text-sm text-stone-400">{t('kitchen.nothingPrep')}</p>}
             </div>
           </section>
-          <section aria-label="Ready to serve">
+          <section aria-label={t('kitchen.readyToServe')}>
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-700">
-              <span className="h-2.5 w-2.5 rounded-full bg-green-500" /> Ready to serve ({ready.length})
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500" /> {t('kitchen.readyToServe')} ({ready.length})
             </h2>
             <div className="space-y-3">
               {ready.map((o) => (
@@ -71,13 +73,13 @@ export function KitchenPage() {
                   title={tableName(o)}
                   order={o}
                   elapsed={fmtElapsed(now - (o.readyAt ?? o.createdAt))}
-                  actionLabel="Served"
+                  actionLabel={t('kitchen.served')}
                   actionIcon={<ConciergeBell size={15} />}
                   onAction={() => markServed(o.id)}
                   ready
                 />
               ))}
-              {ready.length === 0 && <p className="rounded-xl border border-dashed border-stone-200 p-6 text-center text-sm text-stone-400">Nothing waiting to go out</p>}
+              {ready.length === 0 && <p className="rounded-xl border border-dashed border-stone-200 p-6 text-center text-sm text-stone-400">{t('kitchen.nothingWaiting')}</p>}
             </div>
           </section>
         </div>

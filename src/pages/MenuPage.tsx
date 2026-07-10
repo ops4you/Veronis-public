@@ -4,8 +4,10 @@ import type { Product, ProductUnit } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtMoney } from '../lib/format'
 import { Modal } from '../components/ui/Modal'
+import { useTranslation } from '../lib/i18n'
 
 export function MenuPage() {
+  const { t } = useTranslation()
   const {
     categories,
     products,
@@ -26,14 +28,14 @@ export function MenuPage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-stone-900">Menu</h1>
-          <p className="text-sm text-stone-500">What you sell — categories, products and prices</p>
+          <h1 className="text-xl font-bold text-stone-900">{t('menu.title')}</h1>
+          <p className="text-sm text-stone-500">{t('menu.subtitle')}</p>
         </div>
         <button
           onClick={() => setEditing('new')}
           className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
         >
-          <Plus size={16} /> New product
+          <Plus size={16} /> {t('menu.newProduct')}
         </button>
       </header>
 
@@ -45,14 +47,14 @@ export function MenuPage() {
             selectedCat === null ? 'bg-stone-900 text-white' : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
           }`}
         >
-          All ({products.length})
+          {t('menu.allProducts', { count: products.length })}
         </button>
         {categories.map((c) => (
           <div key={c.id} className="group relative">
             <button
               onClick={() => setSelectedCat(c.id)}
               onDoubleClick={() => {
-                const name = window.prompt('Rename category', c.name)
+                const name = window.prompt(t('menu.renameCategory'), c.name)
                 if (name?.trim()) renameCategory(c.id, name.trim())
               }}
               title="Double-click to rename"
@@ -66,12 +68,12 @@ export function MenuPage() {
         ))}
         <button
           onClick={() => {
-            const name = window.prompt('Category name (e.g. Desserts)')
+            const name = window.prompt(t('menu.categoryNamePlaceholder'))
             if (name?.trim()) addCategory(name.trim())
           }}
           className="flex items-center gap-1 rounded-xl border border-dashed border-stone-300 px-3 py-1.5 text-sm text-stone-500 hover:border-stone-400 hover:text-stone-700"
         >
-          <Plus size={14} /> Category
+          <Plus size={14} /> {t('menu.formCategory')}
         </button>
         {selectedCat !== null && (
           <button
@@ -79,7 +81,12 @@ export function MenuPage() {
               const cat = categories.find((c) => c.id === selectedCat)
               if (
                 cat &&
-                window.confirm(`Delete "${cat.name}" and its ${products.filter((p) => p.categoryId === cat.id).length} products?`)
+                window.confirm(
+                  t('menu.deleteCategoryConfirm', {
+                    name: cat.name,
+                    count: products.filter((p) => p.categoryId === cat.id).length,
+                  })
+                )
               ) {
                 deleteCategory(cat.id)
                 setSelectedCat(null)
@@ -87,7 +94,7 @@ export function MenuPage() {
             }}
             className="ml-auto flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm text-red-500 hover:bg-red-50"
           >
-            <Trash2 size={14} /> Delete category
+            <Trash2 size={14} /> {t('menu.deleteCategoryBtn')}
           </button>
         )}
       </div>
@@ -95,17 +102,17 @@ export function MenuPage() {
       {/* Product table */}
       {visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">
-          No products yet — add your first one with “New product”.
+          {t('menu.noProducts')}
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">
-                <th className="px-4 py-3 font-medium">Product</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 text-right font-medium">Price</th>
-                <th className="px-4 py-3 text-center font-medium">On sale</th>
+                <th className="px-4 py-3 font-medium">{t('menu.tableProduct')}</th>
+                <th className="px-4 py-3 font-medium">{t('menu.tableCategory')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('menu.tablePrice')}</th>
+                <th className="px-4 py-3 text-center font-medium">{t('menu.tableOnSale')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -151,7 +158,7 @@ export function MenuPage() {
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm(`Delete "${p.name}"?`)) deleteProduct(p.id)
+                          if (window.confirm(t('menu.deleteProductConfirm', { name: p.name }))) deleteProduct(p.id)
                         }}
                         className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
                         aria-label={`Delete ${p.name}`}
@@ -194,6 +201,7 @@ function ProductModal({
   onClose: () => void
   onSave: (data: { name: string; price: number; categoryId: string; unit: ProductUnit; barcode?: string }) => void
 }) {
+  const { t } = useTranslation()
   const { categories, addCategory } = useStore()
   const [name, setName] = useState(product?.name ?? '')
   const [price, setPrice] = useState(product ? String(product.price) : '')
@@ -203,17 +211,17 @@ function ProductModal({
   const [error, setError] = useState<string | null>(null)
 
   return (
-    <Modal title={product ? `Edit ${product.name}` : 'New product'} onClose={onClose}>
+    <Modal title={product ? t('menu.editProductTitle', { name: product.name }) : t('menu.newProductTitle')} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault()
           const parsed = Number(price.replace(',', '.'))
           const code = barcode.trim()
-          if (!name.trim()) return setError('Give the product a name.')
-          if (!Number.isFinite(parsed) || parsed < 0) return setError('Enter a valid price, e.g. 2.50.')
-          if (!categoryId) return setError('Pick a category — or create one first on the Menu page.')
+          if (!name.trim()) return setError(t('menu.errorName'))
+          if (!Number.isFinite(parsed) || parsed < 0) return setError(t('menu.errorPrice'))
+          if (!categoryId) return setError(t('menu.errorCategory'))
           if (code && !/^[0-9A-Za-z\-_.]{4,20}$/.test(code))
-            return setError('Barcodes are 4–20 characters (digits and letters).')
+            return setError(t('menu.errorBarcode'))
           onSave({
             name: name.trim(),
             price: Math.round(parsed * 100) / 100,
@@ -225,18 +233,18 @@ function ProductModal({
         className="space-y-3"
       >
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-stone-700">Name</span>
+          <span className="mb-1 block text-sm font-medium text-stone-700">{t('menu.formName')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            placeholder="e.g. Cappuccino"
+            placeholder={t('menu.formNamePlaceholder')}
             autoFocus
           />
         </label>
         <div className="flex gap-3">
           <label className="block flex-1">
-            <span className="mb-1 block text-sm font-medium text-stone-700">Price</span>
+            <span className="mb-1 block text-sm font-medium text-stone-700">{t('menu.formPrice')}</span>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -246,20 +254,21 @@ function ProductModal({
             />
           </label>
           <label className="block w-40">
-            <span className="mb-1 block text-sm font-medium text-stone-700">Sold</span>
+            <span className="mb-1 block text-sm font-medium text-stone-700">{t('menu.formSold')}</span>
             <select
               value={unit}
               onChange={(e) => setUnit(e.target.value as ProductUnit)}
               className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
-              <option value="each">Per item</option>
-              <option value="kg">By weight (€/kg)</option>
+              <option value="each">{t('menu.formSoldEach')}</option>
+              <option value="kg">{t('menu.formSoldWeight')}</option>
             </select>
           </label>
         </div>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-stone-700">
-            Barcode <span className="font-normal text-stone-400">(optional — scanner or in-store “2…” prefix)</span>
+            {t('menu.formBarcode')}{' '}
+            <span className="font-normal text-stone-400">{t('menu.formBarcodeHint')}</span>
           </span>
           <input
             value={barcode}
@@ -271,13 +280,13 @@ function ProductModal({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-stone-700">Category</span>
+          <span className="mb-1 block text-sm font-medium text-stone-700">{t('menu.formCategory')}</span>
           <select
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           >
-            {categories.length === 0 && <option value="">No categories yet</option>}
+            {categories.length === 0 && <option value="">{t('menu.formNoCategories')}</option>}
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -289,12 +298,12 @@ function ProductModal({
           <button
             type="button"
             onClick={() => {
-              const n = window.prompt('Category name (e.g. Coffee)')
+              const n = window.prompt(t('menu.categoryNamePlaceholder'))
               if (n?.trim()) addCategory(n.trim())
             }}
             className="text-sm font-medium text-brand-600 hover:underline"
           >
-            + Create a category
+            {t('menu.formCreateCategory')}
           </button>
         )}
         {error && (
@@ -304,10 +313,10 @@ function ProductModal({
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="submit" className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-            Save
+            {t('common.save')}
           </button>
         </div>
       </form>

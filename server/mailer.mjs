@@ -52,17 +52,31 @@ export async function sendMail({ to, subject, heading, bodyHtml, actionUrl, acti
   return { delivered: 'outbox', file }
 }
 
+export function escapeHtml(str) {
+  if (typeof str !== 'string') return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 function renderEmail({ heading, bodyHtml, actionUrl, actionLabel }) {
+  const safeHeading = escapeHtml(heading)
+  const safeActionLabel = escapeHtml(actionLabel)
+  const safeActionUrl = escapeHtml(actionUrl)
+
   const button = actionUrl
-    ? `<p style="margin:28px 0"><a href="${actionUrl}" style="background:#c2410c;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:600;display:inline-block">${actionLabel}</a></p>
-       <p style="font-size:12px;color:#8d867e">If the button does not work, copy this link:<br><span style="word-break:break-all">${actionUrl}</span></p>`
+    ? `<p style="margin:28px 0"><a href="${safeActionUrl}" style="background:#c2410c;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:600;display:inline-block">${safeActionLabel}</a></p>
+       <p style="font-size:12px;color:#8d867e">If the button does not work, copy this link:<br><span style="word-break:break-all">${safeActionUrl}</span></p>`
     : ''
   return `<!doctype html>
 <html><body style="margin:0;background:#f9f9f7;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1917">
   <div style="max-width:520px;margin:0 auto;padding:32px 20px">
     <div style="width:44px;height:44px;border-radius:12px;background:#c2410c;color:#fff;font-size:24px;font-weight:800;text-align:center;line-height:44px;margin-bottom:20px">V</div>
     <div style="background:#ffffff;border:1px solid #e7e3dd;border-radius:16px;padding:28px">
-      <h1 style="font-size:20px;margin:0 0 12px">${heading}</h1>
+      <h1 style="font-size:20px;margin:0 0 12px">${safeHeading}</h1>
       ${bodyHtml}
       ${button}
     </div>

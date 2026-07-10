@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, MoreVertical, Trash2, type LucideIcon } from 'lu
 import type { Widget } from '../../lib/types'
 import { ACCENTS, accent } from '../../lib/palette'
 import { useStore } from '../../store/useStore'
+import { useTranslation } from '../../lib/i18n'
 
 interface Props {
   widget: Widget
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function WidgetCard({ widget, title, subtitle, icon: Icon, children, tall }: Props) {
+  const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { removeWidget, moveWidget, setWidgetAccent, setWidgetSize } = useStore()
@@ -52,14 +54,14 @@ export function WidgetCard({ widget, title, subtitle, icon: Icon, children, tall
           <button
             onClick={() => setMenuOpen((v) => !v)}
             className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-            aria-label={`Customise ${title} widget`}
+            aria-label={t('widgetCard.customize', { title })}
             aria-expanded={menuOpen}
           >
             <MoreVertical size={16} />
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-9 z-30 w-52 rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
-              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-stone-400">Colour</p>
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-stone-400">{t('widgetCard.color')}</p>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {ACCENTS.map((opt) => (
                   <button
@@ -70,12 +72,12 @@ export function WidgetCard({ widget, title, subtitle, icon: Icon, children, tall
                       background: opt.color,
                       borderColor: widget.accent === opt.key ? '#0b0b0b' : 'transparent',
                     }}
-                    aria-label={`${opt.label}${widget.accent === opt.key ? ' (selected)' : ''}`}
+                    aria-label={`${opt.label}${widget.accent === opt.key ? ` (${t('widgetCard.selected')})` : ''}`}
                     title={opt.label}
                   />
                 ))}
               </div>
-              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-stone-400">Width</p>
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-stone-400">{t('widgetCard.width')}</p>
               <div className="mb-3 flex gap-1.5">
                 {([1, 2] as const).map((size) => (
                   <button
@@ -87,7 +89,7 @@ export function WidgetCard({ widget, title, subtitle, icon: Icon, children, tall
                         : 'border-stone-200 text-stone-600 hover:bg-stone-50'
                     }`}
                   >
-                    {size === 1 ? 'Narrow' : 'Wide'}
+                    {size === 1 ? t('widgetCard.narrow') : t('widgetCard.wide')}
                   </button>
                 ))}
               </div>
@@ -95,21 +97,21 @@ export function WidgetCard({ widget, title, subtitle, icon: Icon, children, tall
                 <button
                   onClick={() => moveWidget(widget.id, -1)}
                   className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-stone-200 px-2 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-                  aria-label="Move earlier"
+                  aria-label={t('widgetCard.moveEarlier')}
                 >
-                  <ArrowLeft size={13} /> Move
+                  <ArrowLeft size={13} /> {t('widgetCard.moveEarlier').split(' ')[0]}
                 </button>
                 <button
                   onClick={() => moveWidget(widget.id, 1)}
                   className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-stone-200 px-2 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-                  aria-label="Move later"
+                  aria-label={t('widgetCard.moveLater')}
                 >
-                  Move <ArrowRight size={13} />
+                  {t('widgetCard.moveLater').split(' ')[0]} <ArrowRight size={13} />
                 </button>
                 <button
                   onClick={() => removeWidget(widget.id)}
                   className="rounded-lg border border-red-100 bg-red-50 p-1.5 text-red-600 hover:bg-red-100"
-                  aria-label="Remove widget"
+                  aria-label={t('widgetCard.remove')}
                 >
                   <Trash2 size={14} />
                 </button>

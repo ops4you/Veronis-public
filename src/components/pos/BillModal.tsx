@@ -5,6 +5,7 @@ import { useStore } from '../../store/useStore'
 import { fmtMoney } from '../../lib/format'
 import { lineText } from '../../lib/barcode'
 import { Modal } from '../ui/Modal'
+import { useTranslation } from '../../lib/i18n'
 
 interface Props {
   order: Order
@@ -15,19 +16,20 @@ interface Props {
 }
 
 export function BillModal({ order, tableName, onClose, onPaid }: Props) {
+  const { t } = useTranslation()
   const { settings, payOrder } = useStore()
   const [method, setMethod] = useState<PayMethod>('card')
   const total = order.items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0)
   const money = (v: number) => fmtMoney(v, settings.currency)
 
   return (
-    <Modal title="Bill" onClose={onClose}>
+    <Modal title={t('bill.title')} onClose={onClose}>
       {/* The receipt — also the print area */}
       <div id="receipt-print" className="rounded-xl border border-stone-200 bg-stone-50 p-4 font-mono text-sm">
         <div className="mb-2 text-center">
           <div className="font-bold">{settings.businessName}</div>
           <div className="text-xs text-stone-500">
-            {new Date().toLocaleString()} · {tableName ? `Table ${tableName}` : 'Counter'}
+            {new Date().toLocaleString()} · {tableName ? t('bill.table', { name: tableName }) : t('bill.counter')}
           </div>
         </div>
         <div className="border-t border-dashed border-stone-300 py-2">
@@ -42,11 +44,11 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
           <span>TOTAL</span>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(total)}</span>
         </div>
-        <div className="mt-2 text-center text-xs text-stone-400">Thank you — see you soon!</div>
+        <div className="mt-2 text-center text-xs text-stone-400">{t('bill.thankYou')}</div>
       </div>
 
       <fieldset className="mt-4">
-        <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-stone-400">Payment method</legend>
+        <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-stone-400">{t('bill.paymentMethod')}</legend>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setMethod('cash')}
@@ -55,7 +57,7 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
             }`}
             aria-pressed={method === 'cash'}
           >
-            <Banknote size={16} /> Cash
+            <Banknote size={16} /> {t('bill.cash')}
           </button>
           <button
             onClick={() => setMethod('card')}
@@ -64,7 +66,7 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
             }`}
             aria-pressed={method === 'card'}
           >
-            <CreditCard size={16} /> Card
+            <CreditCard size={16} /> {t('bill.card')}
           </button>
         </div>
       </fieldset>
@@ -74,7 +76,7 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
           onClick={() => window.print()}
           className="flex items-center justify-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50"
         >
-          <Printer size={16} /> Print bill
+          <Printer size={16} /> {t('bill.print')}
         </button>
         <button
           onClick={() => {
@@ -84,7 +86,7 @@ export function BillModal({ order, tableName, onClose, onPaid }: Props) {
           }}
           className="rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
         >
-          Confirm {money(total)}
+          {t('bill.confirm', { amount: money(total) })}
         </button>
       </div>
     </Modal>
