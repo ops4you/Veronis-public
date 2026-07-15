@@ -186,6 +186,7 @@ describe('import / reset', () => {
       products: S().products,
       rooms: S().rooms,
       tables: S().tables,
+      decor: S().decor,
       sales: S().sales.slice(0, 5),
       expenses: [],
       widgets: S().widgets,

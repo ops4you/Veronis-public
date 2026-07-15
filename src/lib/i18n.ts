@@ -4,7 +4,9 @@ export type Language = 'pt' | 'en'
 
 // Simple global listeners pattern for reactive language changes across components
 const listeners = new Set<(lang: Language) => void>()
-let currentLanguage: Language = (localStorage.getItem('veronis_lang') as Language) || 'pt'
+// localStorage doesn't exist outside the browser (Node tests) — default to PT
+let currentLanguage: Language =
+  (typeof localStorage !== 'undefined' && (localStorage.getItem('veronis_lang') as Language)) || 'pt'
 
 export function translate(lang: Language, path: string, interpolations?: Record<string, string | number>): string {
   const parts = path.split('.')
@@ -48,7 +50,7 @@ export const i18n = {
   setLanguage(lang: Language) {
     if (lang === currentLanguage) return
     currentLanguage = lang
-    localStorage.setItem('veronis_lang', lang)
+    if (typeof localStorage !== 'undefined') localStorage.setItem('veronis_lang', lang)
     listeners.forEach((l) => l(lang))
   },
   subscribe(listener: (lang: Language) => void) {

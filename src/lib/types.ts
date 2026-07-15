@@ -26,11 +26,39 @@ export interface Room {
   name: string
 }
 
+/** footprint shape of a table on the floor plan */
+export type TableShape = 'square' | 'round' | 'rect'
+
 export interface Table {
   id: string
   roomId: string
   name: string
   seats: number
+  // --- floor-plan placement, in grid cells (Épico A) ---
+  x: number
+  y: number
+  w: number
+  h: number
+  shape: TableShape
+  /** ad-hoc table created mid-service (F2-R30); removed when its bill closes */
+  extra?: boolean
+  /** set on sub-tables created by dividing a table (F2-R31) */
+  parentTableId?: string
+  /** a divided parent stays hidden until its sub-tables are rejoined */
+  hidden?: boolean
+}
+
+/** non-interactive floor-plan elements for orientation (F2-R2) */
+export type DecorKind = 'counter' | 'door' | 'wall' | 'plant'
+
+export interface Decor {
+  id: string
+  roomId: string
+  kind: DecorKind
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface OrderItem {

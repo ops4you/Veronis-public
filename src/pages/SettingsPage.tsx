@@ -410,6 +410,7 @@ function DataSection({ seedDemo, clearAllData }: { seedDemo: () => void; clearAl
       products: store.products,
       rooms: store.rooms,
       tables: store.tables,
+      decor: store.decor,
       sales: store.sales,
       expenses: store.expenses,
       widgets: store.widgets,
