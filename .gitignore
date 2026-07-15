@@ -9,3 +9,5 @@ past versions/
 
 # live data & secrets — never commit
 server/data/
+.env
+.env.*
