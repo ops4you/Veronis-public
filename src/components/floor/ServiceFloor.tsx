@@ -54,7 +54,7 @@ export function ServiceFloor({ roomId, onOpenTable }: Props) {
           const order = orderFor(x.id)
           const st = order ? STATUS_STYLE[order.status] : null
           const total = order ? order.items.reduce((acc, i) => acc + i.qty * i.unitPrice, 0) : 0
-          const canDivide = !order && !x.extra && !x.parentTableId
+          const canDivide = !order && !x.parentTableId
           const canRejoin = !!x.parentTableId && siblingsFree(x.parentTableId)
           return (
             <div key={x.id} style={boxStyle(x, cell)} className="z-10">
@@ -74,7 +74,7 @@ export function ServiceFloor({ roomId, onOpenTable }: Props) {
                   </span>
                 )}
               </button>
-              {canDivide && cell * x.w >= 24 && (
+              {canDivide && x.w >= 2 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -110,18 +110,20 @@ export function ServiceFloor({ roomId, onOpenTable }: Props) {
           <p className="mb-3 text-sm text-stone-500">{t('floor.divideHint')}</p>
           <span className="mb-1 block text-sm font-medium text-stone-700">{t('floor.divideInto')}</span>
           <div className="flex gap-2">
-            {[2, 3, 4].map((n) => (
-              <button
-                key={n}
-                onClick={() => {
-                  divideTable(dividing.id, n)
-                  setDividing(null)
-                }}
-                className="flex-1 rounded-xl border border-stone-200 px-3 py-3 text-sm font-semibold text-stone-700 hover:border-brand-500 hover:bg-brand-50/40"
-              >
-                {t('floor.divideParts', { n })}
-              </button>
-            ))}
+            {[2, 3, 4]
+              .filter((n) => n === 2 || dividing.h >= 2)
+              .map((n) => (
+                <button
+                  key={n}
+                  onClick={() => {
+                    divideTable(dividing.id, n)
+                    setDividing(null)
+                  }}
+                  className="flex-1 rounded-xl border border-stone-200 px-3 py-3 text-sm font-semibold text-stone-700 hover:border-brand-500 hover:bg-brand-50/40"
+                >
+                  {t('floor.divideParts', { n })}
+                </button>
+              ))}
           </div>
         </Modal>
       )}

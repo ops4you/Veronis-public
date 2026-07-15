@@ -273,8 +273,10 @@ export const useStore = create<State>()(
         const s = get()
         const t = s.tables.find((x) => x.id === tableId)
         if (!t || t.extra || t.parentTableId || t.hidden) return
+        if (t.w < 2) return // Safeguard: must have width >= 2 to be divided
         if (s.orders.some((o) => o.tableId === tableId)) return // occupied tables can't be divided
         const n = Math.max(2, Math.min(4, Math.round(parts)))
+        if (n > 2 && t.h < 2) return // Safeguard: 3-way or 4-way splits require height >= 2
         const cells = splitBox(t, n)
         const letters = ['A', 'B', 'C', 'D']
         const seatsEach = Math.max(1, Math.floor(t.seats / n))
