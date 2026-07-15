@@ -10,6 +10,7 @@ import { MenuPage } from './pages/MenuPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { PlansPage } from './pages/PlansPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { FloorEditorPage } from './pages/FloorEditorPage'
 import { useStore } from './store/useStore'
 import { AuthGate } from './auth/AuthGate'
 import { api } from './lib/api'
@@ -101,6 +102,7 @@ function HydratedApp() {
             <Route path="/history" element={<AdminRoute><HistoryPage /></AdminRoute>} />
             <Route path="/plans" element={<AdminRoute><PlansPage /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+            <Route path="/floor" element={<AdminRoute><FloorEditorPage /></AdminRoute>} />
           </Routes>
         </main>
       </div>

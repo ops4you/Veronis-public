@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Download, Lock, Plus, Trash2, Upload, UserPlus } from 'lucide-react'
+import { Download, LayoutGrid, Lock, Plus, Trash2, Upload, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { DAY_NAMES, fmtHour } from '../lib/format'
@@ -118,6 +118,12 @@ export function SettingsPage() {
 
       {/* Rooms & tables */}
       <Section title={t('settings.roomsTables')} hint={t('settings.roomsTablesHint')}>
+        <Link
+          to="/floor"
+          className="mb-4 flex w-fit items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
+        >
+          <LayoutGrid size={15} /> {t('floor.openEditor')}
+        </Link>
         <div className="space-y-4">
           {rooms.map((room) => {
             const roomTables = tables.filter((t) => t.roomId === room.id)
