@@ -272,7 +272,7 @@ export const useStore = create<State>()(
       divideTable: (tableId, parts) => {
         const s = get()
         const t = s.tables.find((x) => x.id === tableId)
-        if (!t || t.extra || t.parentTableId || t.hidden) return
+        if (!t || t.parentTableId || t.hidden) return
         if (t.w < 2) return // Safeguard: must have width >= 2 to be divided
         if (s.orders.some((o) => o.tableId === tableId)) return // occupied tables can't be divided
         const n = Math.max(2, Math.min(4, Math.round(parts)))
