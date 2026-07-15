@@ -1,36 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ChefHat, Minus, Plus, ReceiptText, Scale, ScanBarcode, ShoppingBag, StickyNote, Trash2, Users } from 'lucide-react'
-import type { Order, OrderStatus, Product, Table } from '../lib/types'
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  ChefHat,
+  LayoutGrid,
+  List,
+  Minus,
+  Plus,
+  ReceiptText,
+  Scale,
+  ScanBarcode,
+  ShoppingBag,
+  SquarePlus,
+  StickyNote,
+  Trash2,
+  Users,
+} from 'lucide-react'
+import type { Order, Product, Table } from '../lib/types'
 import { useStore } from '../store/useStore'
 import { fmtMoney } from '../lib/format'
 import { fmtQty, resolveScan, ScanBuffer } from '../lib/barcode'
 import { BillModal } from '../components/pos/BillModal'
+import { STATUS_KEY, STATUS_STYLE } from '../components/pos/status'
+import { ServiceFloor } from '../components/floor/ServiceFloor'
 import { Modal } from '../components/ui/Modal'
 import { useAuth } from '../auth/AuthContext'
 import { api, type TeamMember } from '../lib/api'
 import { isLocalMode } from '../lib/mode'
 import { useTranslation } from '../lib/i18n'
 
-const STATUS_STYLE: Record<OrderStatus, { tile: string; chip: string }> = {
-  open: { tile: 'border-amber-400 bg-amber-50', chip: 'bg-amber-100 text-amber-800' },
-  sent: { tile: 'border-blue-400 bg-blue-50', chip: 'bg-blue-100 text-blue-800' },
-  ready: { tile: 'border-green-500 bg-green-50', chip: 'bg-green-100 text-green-800' },
-  served: { tile: 'border-violet-400 bg-violet-50', chip: 'bg-violet-100 text-violet-800' },
-}
-
-const STATUS_KEY: Record<OrderStatus, string> = {
-  open: 'pos.takingOrder',
-  sent: 'pos.inKitchen',
-  ready: 'pos.readyToServe',
-  served: 'pos.awaitingBill',
-}
-
 export function PosPage() {
   const { t } = useTranslation()
-  const { rooms, tables, orders, settings, openOrder } = useStore()
+  const { rooms, tables, orders, settings, openOrder, addExtraTable } = useStore()
   const { user } = useAuth()
   const [roomId, setRoomId] = useState<string | null>(null)
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
+  const [view, setView] = useState<'floor' | 'list'>('floor')
+  const [extraOpen, setExtraOpen] = useState(false)
   const me = user ? { id: user.id, name: user.name } : undefined
 
   const currentRoomId = roomId ?? rooms[0]?.id ?? null
@@ -40,7 +46,7 @@ export function PosPage() {
     return <OrderView order={activeOrder} onBack={() => setActiveOrderId(null)} />
   }
 
-  const roomTables = tables.filter((t) => t.roomId === currentRoomId)
+  const roomTables = tables.filter((t) => t.roomId === currentRoomId && !t.hidden)
   const orderFor = (tableId: string) => orders.find((o) => o.tableId === tableId)
   const counterOrders = orders.filter((o) => o.tableId === null)
 
@@ -51,6 +57,34 @@ export function PosPage() {
           <h1 className="text-xl font-bold text-stone-900">{t('pos.title')}</h1>
           <p className="text-sm text-stone-500">{t('pos.subtitle')}</p>
         </div>
+        <div className="flex rounded-xl border border-stone-200 bg-white p-0.5" role="tablist" aria-label="view">
+          <button
+            role="tab"
+            aria-selected={view === 'floor'}
+            onClick={() => setView('floor')}
+            className={`flex items-center gap-1 rounded-[10px] px-2.5 py-1.5 text-sm font-medium ${
+              view === 'floor' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <LayoutGrid size={14} /> {t('floor.floorView')}
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === 'list'}
+            onClick={() => setView('list')}
+            className={`flex items-center gap-1 rounded-[10px] px-2.5 py-1.5 text-sm font-medium ${
+              view === 'list' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <List size={14} /> {t('floor.listView')}
+          </button>
+        </div>
+        <button
+          onClick={() => setExtraOpen(true)}
+          className="flex items-center gap-1.5 rounded-xl border border-dashed border-stone-300 bg-white px-3.5 py-2 text-sm font-medium text-stone-600 hover:border-stone-400 hover:text-stone-900"
+        >
+          <SquarePlus size={16} /> {t('floor.extraTable')}
+        </button>
         <button
           onClick={() => setActiveOrderId(openOrder(null, me))}
           className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
@@ -81,12 +115,26 @@ export function PosPage() {
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white/60 p-14 text-center text-sm text-stone-500">
           {t('pos.noTables')}
         </div>
+      ) : view === 'floor' && currentRoomId ? (
+        <ServiceFloor roomId={currentRoomId} onOpenTable={(id) => setActiveOrderId(openOrder(id, me))} />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {roomTables.map((t) => (
             <TableTile key={t.id} table={t} order={orderFor(t.id)} currency={settings.currency} onOpen={() => setActiveOrderId(openOrder(t.id, me))} />
           ))}
         </div>
+      )}
+
+      {extraOpen && currentRoomId && (
+        <ExtraTableModal
+          roomId={currentRoomId}
+          onClose={() => setExtraOpen(false)}
+          onAdd={(name, seats) => {
+            const id = addExtraTable(currentRoomId, name, seats)
+            setExtraOpen(false)
+            if (id === null) window.alert(t('floor.roomFull'))
+          }}
+        />
       )}
 
       {counterOrders.length > 0 && (
@@ -177,9 +225,11 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
     sendToKitchen,
     cancelOrder,
     setOrderEmployee,
+    transferOrder,
   } = useStore()
   const [catId, setCatId] = useState<string | null>(null)
   const [billOpen, setBillOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [noteFor, setNoteFor] = useState<string | null>(null)
   const [weighing, setWeighing] = useState<Product | null>(null)
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null)
@@ -405,6 +455,12 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
             </button>
           </div>
           <button
+            onClick={() => setTransferOpen(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2 text-xs font-medium text-stone-500 hover:bg-stone-50 hover:text-stone-800"
+          >
+            <ArrowLeftRight size={13} /> {t('floor.transfer')}
+          </button>
+          <button
             onClick={() => {
               if (order.items.length === 0 || window.confirm(t('pos.cancelConfirm'))) {
                 cancelOrder(order.id)
@@ -419,6 +475,17 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
       </aside>
 
       {billOpen && <BillModal order={order} tableName={table?.name ?? null} onClose={() => setBillOpen(false)} onPaid={onBack} />}
+      {transferOpen && (
+        <TransferModal
+          order={order}
+          onClose={() => setTransferOpen(false)}
+          onTransfer={(targetTableId) => {
+            transferOrder(order.id, targetTableId)
+            setTransferOpen(false)
+            onBack()
+          }}
+        />
+      )}
       {weighing && (
         <WeightModal
           product={weighing}
@@ -431,6 +498,121 @@ function OrderView({ order, onBack }: { order: Order; onBack: () => void }) {
         />
       )}
     </div>
+  )
+}
+
+function ExtraTableModal({
+  roomId,
+  onClose,
+  onAdd,
+}: {
+  roomId: string
+  onClose: () => void
+  onAdd: (name: string, seats: number) => void
+}) {
+  const { t } = useTranslation()
+  const { tables } = useStore()
+  const nextName = useMemo(() => {
+    let n = 1
+    for (const x of tables.filter((x) => x.roomId === roomId)) {
+      const m = x.name.match(/^X(\d+)$/)
+      if (m) n = Math.max(n, Number(m[1]) + 1)
+    }
+    return `X${n}`
+  }, [tables, roomId])
+  const [name, setName] = useState(nextName)
+  const [seats, setSeats] = useState('2')
+
+  return (
+    <Modal title={t('floor.extraTableTitle')} onClose={onClose}>
+      <p className="mb-3 text-sm text-stone-500">{t('floor.extraTableHint')}</p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          onAdd(name.trim() || nextName, Math.max(1, Number(seats) || 2))
+        }}
+        className="space-y-3"
+      >
+        <div className="flex gap-3">
+          <label className="flex-1">
+            <span className="mb-1 block text-sm font-medium text-stone-700">{t('floor.extraName')}</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+          </label>
+          <label className="w-28">
+            <span className="mb-1 block text-sm font-medium text-stone-700">{t('floor.seats')}</span>
+            <input
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+              inputMode="numeric"
+              className="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+          </label>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">
+            {t('common.cancel')}
+          </button>
+          <button type="submit" className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            {t('common.add')}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function TransferModal({
+  order,
+  onClose,
+  onTransfer,
+}: {
+  order: Order
+  onClose: () => void
+  onTransfer: (targetTableId: string) => void
+}) {
+  const { t } = useTranslation()
+  const { rooms, tables, orders } = useStore()
+
+  return (
+    <Modal title={t('floor.transferTitle')} onClose={onClose}>
+      <p className="mb-3 text-sm text-stone-500">{t('floor.transferHint')}</p>
+      <div className="max-h-80 space-y-3 overflow-auto">
+        {rooms.map((room) => {
+          const candidates = tables.filter((x) => x.roomId === room.id && !x.hidden && x.id !== order.tableId)
+          if (candidates.length === 0) return null
+          return (
+            <div key={room.id}>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-400">{room.name}</h3>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {candidates.map((x) => {
+                  const target = orders.find((o) => o.tableId === x.id)
+                  const st = target ? STATUS_STYLE[target.status] : null
+                  return (
+                    <button
+                      key={x.id}
+                      onClick={() => onTransfer(x.id)}
+                      className={`rounded-xl border-2 px-3 py-2 text-left text-sm ${
+                        st ? st.tile : 'border-stone-200 bg-white hover:border-stone-400'
+                      }`}
+                    >
+                      <span className="block font-semibold text-stone-900">{x.name}</span>
+                      <span className="block text-[11px] text-stone-500">
+                        {target ? t('floor.transferMerge') : t('common.free')}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
 

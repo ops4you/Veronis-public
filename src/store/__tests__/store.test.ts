@@ -208,3 +208,96 @@ describe('import / reset', () => {
     expect(S().widgets.length).toBeGreaterThan(0)
   })
 })
+
+describe('floor plan service actions (Épico A)', () => {
+  it('addExtraTable creates a dashed extra table; paying its bill removes it (F2-R30)', () => {
+    const id = S().addExtraTable('room-main', 'X1', 2)
+    expect(id).not.toBeNull()
+    const table = S().tables.find((t) => t.id === id)!
+    expect(table.extra).toBe(true)
+    expect(table.w).toBeGreaterThan(0)
+
+    const orderId = S().openOrder(id!)
+    S().addItemToOrder(orderId, espresso())
+    S().payOrder(orderId, 'cash')
+    expect(S().tables.find((t) => t.id === id)).toBeUndefined()
+  })
+
+  it('cancelling the bill also removes the extra table (F2-R30)', () => {
+    const id = S().addExtraTable('room-main', 'X9', 2)!
+    const orderId = S().openOrder(id)
+    S().cancelOrder(orderId)
+    expect(S().tables.find((t) => t.id === id)).toBeUndefined()
+  })
+
+  it('divideTable splits into sub-tables inside the footprint and hides the parent (F2-R31)', () => {
+    S().divideTable('t-main-5', 2)
+    const parent = S().tables.find((t) => t.id === 't-main-5')!
+    const subs = S().tables.filter((t) => t.parentTableId === 't-main-5')
+    expect(parent.hidden).toBe(true)
+    expect(subs).toHaveLength(2)
+    expect(subs.map((s) => s.name)).toEqual(['T5·A', 'T5·B'])
+    expect(subs.reduce((acc, s) => acc + s.seats, 0)).toBe(parent.seats)
+    for (const sub of subs) {
+      expect(sub.x).toBeGreaterThanOrEqual(parent.x)
+      expect(sub.x + sub.w).toBeLessThanOrEqual(parent.x + parent.w)
+    }
+  })
+
+  it('an occupied table cannot be divided', () => {
+    S().openOrder('t-main-6')
+    S().divideTable('t-main-6', 2)
+    expect(S().tables.filter((t) => t.parentTableId === 't-main-6')).toHaveLength(0)
+  })
+
+  it('rejoinTable restores the parent only when all sub-bills are closed (F2-R31)', () => {
+    S().divideTable('t-main-7', 2)
+    const subs = S().tables.filter((t) => t.parentTableId === 't-main-7')
+    const orderId = S().openOrder(subs[0].id)
+    S().addItemToOrder(orderId, espresso())
+
+    S().rejoinTable('t-main-7') // blocked: open bill on a sub-table
+    expect(S().tables.find((t) => t.id === 't-main-7')!.hidden).toBe(true)
+
+    S().payOrder(orderId, 'card')
+    S().rejoinTable('t-main-7')
+    expect(S().tables.find((t) => t.id === 't-main-7')!.hidden).toBe(false)
+    expect(S().tables.filter((t) => t.parentTableId === 't-main-7')).toHaveLength(0)
+  })
+
+  it('transferOrder moves a bill to a free table (F2-R5)', () => {
+    const orderId = S().openOrder('t-main-1')
+    S().addItemToOrder(orderId, espresso())
+    S().transferOrder(orderId, 't-main-2')
+    expect(S().orders.find((o) => o.id === orderId)!.tableId).toBe('t-main-2')
+  })
+
+  it('transferOrder merges bills when the target is occupied (F2-R5)', () => {
+    const a = S().openOrder('t-main-1')
+    S().addItemToOrder(a, espresso(), 2)
+    const b = S().openOrder('t-main-2')
+    S().addItemToOrder(b, espresso())
+
+    S().transferOrder(a, 't-main-2')
+    expect(S().orders.find((o) => o.id === a)).toBeUndefined()
+    const merged = S().orders.find((o) => o.id === b)!
+    expect(merged.items.reduce((acc, i) => acc + i.qty, 0)).toBe(3)
+  })
+
+  it('batchAddTables numbers from the existing sequence (F2-R3)', () => {
+    const created = S().batchAddTables('room-main', 3, 'T', 4, 'square')
+    expect(created).toBe(3)
+    const names = S().tables.filter((t) => t.roomId === 'room-main').map((t) => t.name)
+    expect(names).toContain('T9')
+    expect(names).toContain('T11')
+  })
+
+  it('duplicateRoom copies tables and decor with fresh ids (F2-R3)', () => {
+    const newId = S().duplicateRoom('room-main')!
+    const copies = S().tables.filter((t) => t.roomId === newId)
+    const originals = S().tables.filter((t) => t.roomId === 'room-main' && !t.extra && !t.parentTableId)
+    expect(copies).toHaveLength(originals.length)
+    expect(S().decor.some((d) => d.roomId === newId)).toBe(true)
+    expect(new Set(copies.map((c) => c.id)).size).toBe(copies.length)
+  })
+})
