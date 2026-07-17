@@ -10,6 +10,7 @@ function sampleData(): BackupData {
     products: seed.products,
     rooms: seed.rooms,
     tables: seed.tables,
+    decor: seed.decor,
     sales: seed.sales,
     expenses: seed.expenses,
     widgets: seed.widgets,

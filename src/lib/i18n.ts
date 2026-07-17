@@ -4,7 +4,9 @@ export type Language = 'pt' | 'en'
 
 // Simple global listeners pattern for reactive language changes across components
 const listeners = new Set<(lang: Language) => void>()
-let currentLanguage: Language = (localStorage.getItem('veronis_lang') as Language) || 'pt'
+// localStorage doesn't exist outside the browser (Node tests) — default to PT
+let currentLanguage: Language =
+  (typeof localStorage !== 'undefined' && (localStorage.getItem('veronis_lang') as Language)) || 'pt'
 
 export function translate(lang: Language, path: string, interpolations?: Record<string, string | number>): string {
   const parts = path.split('.')
@@ -48,7 +50,7 @@ export const i18n = {
   setLanguage(lang: Language) {
     if (lang === currentLanguage) return
     currentLanguage = lang
-    localStorage.setItem('veronis_lang', lang)
+    if (typeof localStorage !== 'undefined') localStorage.setItem('veronis_lang', lang)
     listeners.forEach((l) => l(lang))
   },
   subscribe(listener: (lang: Language) => void) {
@@ -402,6 +404,59 @@ export const translations = {
       teamDisclaimer: 'A sua equipa inicia sessão com contas que criar em Definições → Equipa.',
       connectionError: 'Não foi possível contactar o servidor — verifique a sua ligação.',
     },
+    floor: {
+      editorTitle: 'Editor de planta',
+      editorSubtitle: 'Arraste mesas, redimensione e organize as salas como no espaço real',
+      openEditor: 'Abrir editor de planta',
+      done: 'Concluído',
+      addTable: 'Mesa',
+      addBatch: 'Várias…',
+      counter: 'Balcão',
+      door: 'Porta',
+      wall: 'Parede',
+      plant: 'Planta',
+      addRoom: 'Adicionar sala',
+      duplicateRoom: 'Duplicar sala',
+      deleteRoom: 'Apagar sala',
+      deleteRoomConfirm: 'Apagar a sala "{{name}}" e todas as suas mesas?',
+      roomName: 'Nome da sala',
+      roomFull: 'A sala não tem espaço livre para este elemento.',
+      tableName: 'Nome',
+      seats: 'Lugares',
+      shape: 'Forma',
+      shapeSquare: 'Quadrada',
+      shapeRound: 'Redonda',
+      shapeRect: 'Retangular',
+      rotate: 'Rodar',
+      deleteElement: 'Apagar',
+      deleteTableConfirm: 'Apagar a mesa "{{name}}"?',
+      batchTitle: 'Adicionar várias mesas',
+      batchCount: 'Quantas mesas?',
+      batchPrefix: 'Prefixo do nome',
+      batchAdded: '{{count}} mesas adicionadas.',
+      batchPartial: 'Só couberam {{count}} mesas — a sala ficou cheia.',
+      selectHint: 'Toque num elemento para o editar; arraste para o mover.',
+      extraBadge: 'extra',
+      subBadge: 'dividida',
+      // serviço
+      extraTable: 'Mesa extra',
+      extraTableTitle: 'Mesa extra (fora da planta)',
+      extraTableHint: 'Para quando a disposição da sala mudou — desaparece quando a conta fechar.',
+      extraName: 'Nome da mesa',
+      divide: 'Dividir',
+      divideTitle: 'Dividir a mesa {{name}}',
+      divideHint: 'Cada sub-mesa tem pedido e conta próprios. Volte a juntar quando as contas fecharem.',
+      divideInto: 'Dividir em',
+      divideParts: '{{n}} mesas',
+      rejoin: 'Juntar',
+      rejoinBlocked: 'Feche primeiro as contas abertas das sub-mesas.',
+      transfer: 'Transferir mesa',
+      transferTitle: 'Transferir / juntar conta',
+      transferHint: 'Escolha a mesa de destino. Se estiver ocupada, as contas são juntas.',
+      transferMerge: 'juntar contas',
+      listView: 'Lista',
+      floorView: 'Planta',
+    },
   },
   en: {
     common: {
@@ -741,6 +796,59 @@ export const translations = {
       setNewPassword: 'Set new password',
       teamDisclaimer: 'Your team signs in with accounts you create in Settings → Team.',
       connectionError: 'Could not reach the server — check your connection.',
+    },
+    floor: {
+      editorTitle: 'Floor plan editor',
+      editorSubtitle: 'Drag tables, resize and lay out rooms like the real space',
+      openEditor: 'Open floor plan editor',
+      done: 'Done',
+      addTable: 'Table',
+      addBatch: 'Several…',
+      counter: 'Counter',
+      door: 'Door',
+      wall: 'Wall',
+      plant: 'Plant',
+      addRoom: 'Add room',
+      duplicateRoom: 'Duplicate room',
+      deleteRoom: 'Delete room',
+      deleteRoomConfirm: 'Delete room "{{name}}" and all its tables?',
+      roomName: 'Room name',
+      roomFull: 'No free space left in this room for that element.',
+      tableName: 'Name',
+      seats: 'Seats',
+      shape: 'Shape',
+      shapeSquare: 'Square',
+      shapeRound: 'Round',
+      shapeRect: 'Rectangular',
+      rotate: 'Rotate',
+      deleteElement: 'Delete',
+      deleteTableConfirm: 'Delete table "{{name}}"?',
+      batchTitle: 'Add several tables',
+      batchCount: 'How many tables?',
+      batchPrefix: 'Name prefix',
+      batchAdded: '{{count}} tables added.',
+      batchPartial: 'Only {{count}} tables fitted — the room is full.',
+      selectHint: 'Tap an element to edit it; drag to move it.',
+      extraBadge: 'extra',
+      subBadge: 'split',
+      // service
+      extraTable: 'Extra table',
+      extraTableTitle: 'Extra table (off-plan)',
+      extraTableHint: 'For when the room layout changed — it disappears once the bill closes.',
+      extraName: 'Table name',
+      divide: 'Split',
+      divideTitle: 'Split table {{name}}',
+      divideHint: 'Each sub-table gets its own order and bill. Rejoin when the bills are closed.',
+      divideInto: 'Split into',
+      divideParts: '{{n}} tables',
+      rejoin: 'Rejoin',
+      rejoinBlocked: 'Close the open bills on the sub-tables first.',
+      transfer: 'Transfer table',
+      transferTitle: 'Transfer / merge bill',
+      transferHint: 'Pick the destination table. If it is occupied, the bills are merged.',
+      transferMerge: 'merge bills',
+      listView: 'List',
+      floorView: 'Floor plan',
     },
   },
 } as const

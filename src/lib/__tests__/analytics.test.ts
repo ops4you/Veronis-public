@@ -19,6 +19,7 @@ import {
   weekdayAverages,
 } from '../analytics'
 import type { Category, OpeningHours, Product, Sale } from '../types'
+import { i18n } from '../i18n'
 
 const DAY = 86_400_000
 
@@ -44,6 +45,7 @@ function sale(at: number, total: number, lines: Partial<Sale['lines'][number]>[]
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(NOW)
+  i18n.setLanguage('en') // day-name assertions are locale-sensitive
 })
 afterEach(() => {
   vi.useRealTimers()

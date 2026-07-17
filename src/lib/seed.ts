@@ -1,6 +1,7 @@
 import type {
   BusinessSettings,
   Category,
+  Decor,
   Expense,
   Product,
   Room,
@@ -29,6 +30,7 @@ export interface SeedData {
   products: Product[]
   rooms: Room[]
   tables: Table[]
+  decor: Decor[]
   sales: Sale[]
   expenses: Expense[]
   widgets: Widget[]
@@ -93,13 +95,34 @@ export function buildSeed(now = Date.now()): SeedData {
     { id: 'room-terrace', name: 'Terrace' },
   ]
 
+  // Demo floor plan: small squares by the window, bigger tables mid-room,
+  // counter along the top-right, door at the bottom-left. Terrace is round.
   const tables: Table[] = []
-  for (let i = 1; i <= 8; i++) {
-    tables.push({ id: `t-main-${i}`, roomId: 'room-main', name: `T${i}`, seats: i <= 4 ? 2 : 4 })
+  for (let i = 1; i <= 4; i++) {
+    tables.push({
+      id: `t-main-${i}`, roomId: 'room-main', name: `T${i}`, seats: 2,
+      x: 1 + (i - 1) * 4, y: 2, w: 2, h: 2, shape: 'square',
+    })
+  }
+  for (let i = 5; i <= 8; i++) {
+    tables.push({
+      id: `t-main-${i}`, roomId: 'room-main', name: `T${i}`, seats: 4,
+      x: 1 + (i - 5) * 5, y: 7, w: 3, h: 2, shape: 'rect',
+    })
   }
   for (let i = 1; i <= 6; i++) {
-    tables.push({ id: `t-ter-${i}`, roomId: 'room-terrace', name: `E${i}`, seats: 4 })
+    tables.push({
+      id: `t-ter-${i}`, roomId: 'room-terrace', name: `E${i}`, seats: 4,
+      x: 2 + ((i - 1) % 3) * 5, y: i <= 3 ? 2 : 7, w: 3, h: 3, shape: 'round',
+    })
   }
+
+  const decor: Decor[] = [
+    { id: 'd-counter', roomId: 'room-main', kind: 'counter', x: 17, y: 1, w: 6, h: 2 },
+    { id: 'd-door', roomId: 'room-main', kind: 'door', x: 1, y: 12, w: 2, h: 1 },
+    { id: 'd-plant-1', roomId: 'room-terrace', kind: 'plant', x: 20, y: 1, w: 2, h: 2 },
+    { id: 'd-plant-2', roomId: 'room-terrace', kind: 'plant', x: 20, y: 10, w: 2, h: 2 },
+  ]
 
   // --- Sales history: 84 days with a deliberate quiet-time pattern ----------
   // Mondays are weak overall; 15:00–17:00 is dead early in the week.
@@ -212,5 +235,5 @@ export function buildSeed(now = Date.now()): SeedData {
     { id: 'w-recentSales', type: 'recentSales', size: 1, accent: 'orange' },
   ]
 
-  return { settings, categories, products, rooms, tables, sales, expenses, widgets }
+  return { settings, categories, products, rooms, tables, decor, sales, expenses, widgets }
 }

@@ -31,6 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
         products: s.products,
         rooms: s.rooms,
         tables: s.tables,
+        decor: s.decor,
         sales: s.sales,
         expenses: s.expenses,
         widgets: s.widgets,
