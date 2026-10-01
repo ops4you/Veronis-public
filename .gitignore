@@ -11,3 +11,8 @@ past versions/
 server/data/
 .env
 .env.*
+
+# private planning docs & local tool settings — never commit
+ProjectPlan_Documents/
+*.pdf
+.claude/settings.local.json
