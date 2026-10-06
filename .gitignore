@@ -16,3 +16,4 @@ server/data/
 ProjectPlan_Documents/
 *.pdf
 .claude/settings.local.json
+.npmrc
