@@ -30,15 +30,32 @@ when to open later, close earlier or run a lighter shift.
 
 ## Features
 
-|  |  |
-|---|---|
-| **Dashboard** — a grid of widgets you compose: income, expenses, profit, orders, average ticket, sales per day, top products, category mix, payment split, sales by employee and **Quiet hours**. Recolour, resize, reorder or remove any widget. | <img src="docs/screenshots/dashboard.png" width="420" /> |
-| **Service** — a live floor plan of your rooms. Tap a table → tap products → **send to the kitchen** → **charge** with a printable bill. Extra tables, table splitting, table transfers and counter/takeaway sales. | <img src="docs/screenshots/service-floor.png" width="420" /> |
-| **Ticket** — quantities, notes and totals at a glance; update the kitchen as the order grows. | <img src="docs/screenshots/service.png" width="420" /> |
-| **Kitchen** — a live ticket queue with elapsed-time badges. Open it on a second screen; it syncs automatically. | <img src="docs/screenshots/kitchen.png" width="420" /> |
-| **Floor plan editor** — drag and resize tables, counters, doors, walls and plants to match the real space. | <img src="docs/screenshots/floor.png" width="420" /> |
+### Dashboard
+A grid of widgets you compose: income, expenses, profit, orders, average ticket, sales
+per day, top products, category mix, payment split, sales by employee and **Quiet
+hours**. Recolour, resize, reorder or remove any widget.
 
-And also:
+### Service
+A live floor plan of your rooms. Tap a table → tap products → **send to the kitchen** →
+**charge** with a printable bill. Extra tables, table splitting, table transfers and
+counter/takeaway sales.
+
+<img src="docs/screenshots/service-floor.png" alt="Service floor plan" width="900" />
+
+<img src="docs/screenshots/service.png" alt="Taking an order" width="900" />
+
+### Kitchen
+A live ticket queue with elapsed-time badges. Open it on a second screen — it syncs
+automatically.
+
+<img src="docs/screenshots/kitchen.png" alt="Kitchen ticket queue" width="900" />
+
+### Floor plan editor
+Drag and resize tables, counters, doors, walls and plants to match the real space.
+
+<img src="docs/screenshots/floor.png" alt="Floor plan editor" width="900" />
+
+### And also
 
 - **Menu** — categories, products, prices, on-sale toggles.
 - **History** — sales grouped by day plus a simple expense ledger.
